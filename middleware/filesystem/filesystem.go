@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // Config defines the config for middleware.
@@ -16,7 +16,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// Root is a FileSystem that provides access
 	// to a collection of files and directories.
@@ -65,7 +65,7 @@ var ConfigDefault = Config{
 }
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := ConfigDefault
 
@@ -98,26 +98,26 @@ func New(config ...Config) fiber.Handler {
 	cacheControlStr := "public, max-age=" + strconv.Itoa(cfg.MaxAge)
 
 	// Return new handler
-	return func(c *fiber.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
-		method := c.Method()
+		method := req.Method()
 
 		// We only serve static assets on GET or HEAD methods
-		if method != fiber.MethodGet && method != fiber.MethodHead {
-			return c.Next()
+		if method != lightning.MethodGet && method != lightning.MethodHead {
+			return req.Next()
 		}
 
 		// Set prefix once
 		once.Do(func() {
-			prefix = c.Route().Path
+			prefix = req.Route().Path
 		})
 
 		// Strip prefix
-		path := strings.TrimPrefix(c.Path(), prefix)
+		path := strings.TrimPrefix(req.Path(), prefix)
 		if !strings.HasPrefix(path, "/") {
 			path = "/" + path
 		}
@@ -142,7 +142,7 @@ func New(config ...Config) fiber.Handler {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				return c.Status(fiber.StatusNotFound).Next()
+				return res.Status(lightning.StatusNotFound).Send()
 			}
 			return
 		}
@@ -167,46 +167,46 @@ func New(config ...Config) fiber.Handler {
 		// Browse directory if no index found and browsing is enabled
 		if stat.IsDir() {
 			if cfg.Browse {
-				return dirList(c, file)
+				return dirList(req.Ctx(), file)
 			}
-			return fiber.ErrForbidden
+			return lightning.ErrForbidden
 		}
 
 		modTime := stat.ModTime()
 		contentLength := int(stat.Size())
 
 		// Set Content Type header
-		c.Type(getFileExtension(stat.Name()))
+		res.Type(getFileExtension(stat.Name()))
 
 		// Set Last Modified header
 		if !modTime.IsZero() {
-			c.Set(fiber.HeaderLastModified, modTime.UTC().Format(http.TimeFormat))
+			res.Header.Set(lightning.HeaderLastModified, modTime.UTC().Format(http.TimeFormat))
 		}
 
-		if method == fiber.MethodGet {
+		if method == lightning.MethodGet {
 			if cfg.MaxAge > 0 {
-				c.Set(fiber.HeaderCacheControl, cacheControlStr)
+				res.Header.Set(lightning.HeaderCacheControl, cacheControlStr)
 			}
-			c.Response().SetBodyStream(file, contentLength)
+			res.Ctx().Response().SetBodyStream(file, contentLength)
 			return nil
 		}
-		if method == fiber.MethodHead {
-			c.Request().ResetBody()
+		if method == lightning.MethodHead {
+			res.Ctx().Request().ResetBody()
 			// Fasthttp should skipbody by default if HEAD?
-			c.Response().SkipBody = true
-			c.Response().Header.SetContentLength(contentLength)
+			res.Ctx().Response().SkipBody = true
+			res.Ctx().Response().Header.SetContentLength(contentLength)
 			if err := file.Close(); err != nil {
 				return err
 			}
 			return nil
 		}
 
-		return c.Next()
+		return req.Next()
 	}
 }
 
 // SendFile ...
-func SendFile(c *fiber.Ctx, fs http.FileSystem, path string) (err error) {
+func SendFile(req *lightning.Request, res *lightning.Response, fs http.FileSystem, path string) (err error) {
 	var (
 		file http.File
 		stat os.FileInfo
@@ -215,7 +215,7 @@ func SendFile(c *fiber.Ctx, fs http.FileSystem, path string) (err error) {
 	file, err = fs.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fiber.ErrNotFound
+			return lightning.ErrNotFound
 		}
 		return err
 	}
@@ -239,30 +239,30 @@ func SendFile(c *fiber.Ctx, fs http.FileSystem, path string) (err error) {
 
 	// Return forbidden if no index found
 	if stat.IsDir() {
-		return fiber.ErrForbidden
+		return lightning.ErrForbidden
 	}
 
 	modTime := stat.ModTime()
 	contentLength := int(stat.Size())
 
 	// Set Content Type header
-	c.Type(getFileExtension(stat.Name()))
+	res.Type(getFileExtension(stat.Name()))
 
 	// Set Last Modified header
 	if !modTime.IsZero() {
-		c.Set(fiber.HeaderLastModified, modTime.UTC().Format(http.TimeFormat))
+		res.Header.Set(lightning.HeaderLastModified, modTime.UTC().Format(http.TimeFormat))
 	}
 
-	method := c.Method()
-	if method == fiber.MethodGet {
-		c.Response().SetBodyStream(file, contentLength)
+	method := req.Method()
+	if method == lightning.MethodGet {
+		res.Ctx().Response().SetBodyStream(file, contentLength)
 		return nil
 	}
-	if method == fiber.MethodHead {
-		c.Request().ResetBody()
+	if method == lightning.MethodHead {
+		res.Ctx().Request().ResetBody()
 		// Fasthttp should skipbody by default if HEAD?
-		c.Response().SkipBody = true
-		c.Response().Header.SetContentLength(contentLength)
+		res.Ctx().Response().SkipBody = true
+		res.Ctx().Response().Header.SetContentLength(contentLength)
 		if err := file.Close(); err != nil {
 			return err
 		}

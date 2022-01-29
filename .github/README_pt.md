@@ -56,7 +56,7 @@
     <img height="20px" src="https://img.shields.io/badge/IT-flag.svg?color=555555&style=flat&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBoZWlnaHQ9IjEwMDAiIHZpZXdCb3g9IjAgMCAzIDIiPg0KPHBhdGggZmlsbD0iIzAwOTI0NiIgZD0ibTAsMGgxdjJoLTF6Ii8+DQo8cGF0aCBmaWxsPSIjZmZmIiBkPSJtMSwwaDF2MmgtMXoiLz4NCjxwYXRoIGZpbGw9IiNjZTJiMzciIGQ9Im0yLDBoMXYyaC0xeiIvPg0KPC9zdmc+DQo=">
   </a>
   <br>
-  <a href="https://pkg.go.dev/github.com/gofiber/fiber/v2?tab=doc">
+  <a href="https://pkg.go.dev/github.com/ikidev/lightning?tab=doc">
     <img src="https://img.shields.io/badge/%F0%9F%93%9A%20godoc-pkg-00ACD7.svg?color=00ACD7&style=flat">
   </a>
   <a href="https://goreportcard.com/report/github.com/gofiber/fiber">
@@ -87,7 +87,7 @@
 ```go
 package main
 
-import "github.com/gofiber/fiber/v2"
+import "github.com/ikidev/lightning"
 
 func main() {
     app := fiber.New()
@@ -116,7 +116,7 @@ Certifique-se de ter o Go instalado ([download](https://golang.org/dl/)). Versã
 Inicie seu projeto criando um diretório e então execute `go mod init github.com/your/repo` ([saiba mais](https://blog.golang.org/using-go-modules)) dentro dele. Então, instale o Fiber com o comando [`go get`](https://golang.org/cmd/go/#hdr-Add_dependencies_to_current_module_and_install_them):
 
 ```bash
-go get -u github.com/gofiber/fiber/v2
+go get -u github.com/ikidev/lightning
 ```
 
 ## 🎯 Recursos
@@ -289,7 +289,7 @@ Se você quiser uma execução parcial ou usar uma engine diferente como [amber]
 package main
 
 import (
-    "github.com/gofiber/fiber/v2"
+    "github.com/ikidev/lightning"
     "github.com/gofiber/template/pug"
 )
 
@@ -356,8 +356,8 @@ package main
 import (
     "log"
 
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/logger"
+    "github.com/ikidev/lightning"
+    "github.com/ikidev/lightning/middleware/logger"
 )
 
 func main() {
@@ -379,8 +379,8 @@ func main() {
 import (
     "log"
 
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/cors"
+    "github.com/ikidev/lightning"
+    "github.com/ikidev/lightning/middleware/cors"
 )
 
 func main() {
@@ -464,8 +464,8 @@ func main() {
 
 ```go
 import (
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/websocket"
+    "github.com/ikidev/lightning"
+    "github.com/ikidev/lightning/middleware/websocket"
 )
 
 func main() {
@@ -498,8 +498,8 @@ func main() {
 
 ```go
 import (
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/recover"
+    "github.com/ikidev/lightning"
+    "github.com/ikidev/lightning/middleware/recover"
 )
 
 func main() {

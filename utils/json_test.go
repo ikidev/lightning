@@ -3,8 +3,6 @@ package utils
 import (
 	goJson "encoding/json"
 	"testing"
-
-	"github.com/gofiber/fiber/v2/internal/go-json"
 )
 
 type sampleStructure struct {
@@ -36,7 +34,7 @@ func Test_DefaultJSONEncoder(t *testing.T) {
 			ImportantString: "Hello World",
 		}
 		importantString             = `{"important_string":"Hello World"}`
-		jsonEncoder     JSONMarshal = json.Marshal
+		jsonEncoder     JSONMarshal = goJson.Marshal
 	)
 
 	raw, err := jsonEncoder(ss)
@@ -51,7 +49,7 @@ func Test_DefaultJSONDecoder(t *testing.T) {
 	var (
 		ss              sampleStructure
 		importantString               = []byte(`{"important_string":"Hello World"}`)
-		jsonDecoder     JSONUnmarshal = json.Unmarshal
+		jsonDecoder     JSONUnmarshal = goJson.Unmarshal
 	)
 
 	err := jsonDecoder(importantString, &ss)

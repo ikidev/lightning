@@ -1,6 +1,6 @@
-package fiber
+package lightning
 
-import "github.com/gofiber/fiber/v2/internal/schema"
+import "github.com/ikidev/lightning/internal/schema"
 
 type (
 	// Conversion error exposes the internal schema.ConversionError for public use.

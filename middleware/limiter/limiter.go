@@ -1,7 +1,7 @@
 package limiter
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 const (
@@ -12,11 +12,11 @@ const (
 )
 
 type LimiterHandler interface {
-	New(config Config) fiber.Handler
+	New(config Config) lightning.Handler
 }
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 

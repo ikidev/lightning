@@ -6,20 +6,20 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 func Test_Non_Expvar_Path(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
 
@@ -29,18 +29,18 @@ func Test_Non_Expvar_Path(t *testing.T) {
 }
 
 func Test_Expvar_Index(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/debug/vars", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/debug/vars", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
-	utils.AssertEqual(t, fiber.MIMEApplicationJSONCharsetUTF8, resp.Header.Get(fiber.HeaderContentType))
+	utils.AssertEqual(t, lightning.MIMEApplicationJSONCharsetUTF8, resp.Header.Get(lightning.HeaderContentType))
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -49,18 +49,18 @@ func Test_Expvar_Index(t *testing.T) {
 }
 
 func Test_Expvar_Filter(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/debug/vars?r=cmd", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/debug/vars?r=cmd", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
-	utils.AssertEqual(t, fiber.MIMEApplicationJSONCharsetUTF8, resp.Header.Get(fiber.HeaderContentType))
+	utils.AssertEqual(t, lightning.MIMEApplicationJSONCharsetUTF8, resp.Header.Get(lightning.HeaderContentType))
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -69,15 +69,15 @@ func Test_Expvar_Filter(t *testing.T) {
 }
 
 func Test_Expvar_Other_Path(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/debug/vars/302", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/debug/vars/302", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 302, resp.StatusCode)
 }

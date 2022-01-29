@@ -5,18 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 func Test_CSRF(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -49,7 +49,7 @@ func Test_CSRF(t *testing.T) {
 		ctx.Response.Reset()
 		ctx.Request.Header.SetMethod(method)
 		h(ctx)
-		token := string(ctx.Response.Header.Peek(fiber.HeaderSetCookie))
+		token := string(ctx.Response.Header.Peek(lightning.HeaderSetCookie))
 		token = strings.Split(strings.Split(token, ";")[0], "=")[1]
 
 		ctx.Request.Reset()
@@ -63,28 +63,28 @@ func Test_CSRF(t *testing.T) {
 
 // go test -run Test_CSRF_Next
 func Test_CSRF_Next(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }
 
 func Test_CSRF_Invalid_KeyLookup(t *testing.T) {
 	defer func() {
 		utils.AssertEqual(t, "[CSRF] KeyLookup must in the form of <source>:<key>", recover())
 	}()
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{KeyLookup: "I:am:invalid"}))
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -94,12 +94,12 @@ func Test_CSRF_Invalid_KeyLookup(t *testing.T) {
 }
 
 func Test_CSRF_From_Form(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{KeyLookup: "form:_csrf"}))
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -107,7 +107,7 @@ func Test_CSRF_From_Form(t *testing.T) {
 
 	// Invalid CSRF token
 	ctx.Request.Header.SetMethod("POST")
-	ctx.Request.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationForm)
+	ctx.Request.Header.Set(lightning.HeaderContentType, lightning.MIMEApplicationForm)
 	h(ctx)
 	utils.AssertEqual(t, 403, ctx.Response.StatusCode())
 
@@ -116,23 +116,23 @@ func Test_CSRF_From_Form(t *testing.T) {
 	ctx.Response.Reset()
 	ctx.Request.Header.SetMethod("GET")
 	h(ctx)
-	token := string(ctx.Response.Header.Peek(fiber.HeaderSetCookie))
+	token := string(ctx.Response.Header.Peek(lightning.HeaderSetCookie))
 	token = strings.Split(strings.Split(token, ";")[0], "=")[1]
 
 	ctx.Request.Header.SetMethod("POST")
-	ctx.Request.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationForm)
+	ctx.Request.Header.Set(lightning.HeaderContentType, lightning.MIMEApplicationForm)
 	ctx.Request.SetBodyString("_csrf=" + token)
 	h(ctx)
 	utils.AssertEqual(t, 200, ctx.Response.StatusCode())
 }
 
 func Test_CSRF_From_Query(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{KeyLookup: "query:_csrf"}))
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -150,7 +150,7 @@ func Test_CSRF_From_Query(t *testing.T) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.SetRequestURI("/")
 	h(ctx)
-	token := string(ctx.Response.Header.Peek(fiber.HeaderSetCookie))
+	token := string(ctx.Response.Header.Peek(lightning.HeaderSetCookie))
 	token = strings.Split(strings.Split(token, ";")[0], "=")[1]
 
 	ctx.Request.Reset()
@@ -163,12 +163,12 @@ func Test_CSRF_From_Query(t *testing.T) {
 }
 
 func Test_CSRF_From_Param(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	csrfGroup := app.Group("/:csrf", New(Config{KeyLookup: "param:csrf"}))
 
-	csrfGroup.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	csrfGroup.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -186,7 +186,7 @@ func Test_CSRF_From_Param(t *testing.T) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.SetRequestURI("/" + utils.UUID())
 	h(ctx)
-	token := string(ctx.Response.Header.Peek(fiber.HeaderSetCookie))
+	token := string(ctx.Response.Header.Peek(lightning.HeaderSetCookie))
 	token = strings.Split(strings.Split(token, ";")[0], "=")[1]
 
 	ctx.Request.Reset()
@@ -199,12 +199,12 @@ func Test_CSRF_From_Param(t *testing.T) {
 }
 
 func Test_CSRF_From_Cookie(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	csrfGroup := app.Group("/", New(Config{KeyLookup: "cookie:csrf"}))
 
-	csrfGroup.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	csrfGroup.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -213,7 +213,7 @@ func Test_CSRF_From_Cookie(t *testing.T) {
 	// Invalid CSRF token
 	ctx.Request.Header.SetMethod("POST")
 	ctx.Request.SetRequestURI("/")
-	ctx.Request.Header.Set(fiber.HeaderCookie, "csrf="+utils.UUID()+";")
+	ctx.Request.Header.Set(lightning.HeaderCookie, "csrf="+utils.UUID()+";")
 	h(ctx)
 	utils.AssertEqual(t, 403, ctx.Response.StatusCode())
 
@@ -223,13 +223,13 @@ func Test_CSRF_From_Cookie(t *testing.T) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.SetRequestURI("/")
 	h(ctx)
-	token := string(ctx.Response.Header.Peek(fiber.HeaderSetCookie))
+	token := string(ctx.Response.Header.Peek(lightning.HeaderSetCookie))
 	token = strings.Split(strings.Split(token, ";")[0], "=")[1]
 
 	ctx.Request.Reset()
 	ctx.Response.Reset()
 	ctx.Request.Header.SetMethod("POST")
-	ctx.Request.Header.Set(fiber.HeaderCookie, "csrf="+token+";")
+	ctx.Request.Header.Set(lightning.HeaderCookie, "csrf="+token+";")
 	ctx.Request.SetRequestURI("/")
 	h(ctx)
 	utils.AssertEqual(t, 200, ctx.Response.StatusCode())
@@ -237,17 +237,17 @@ func Test_CSRF_From_Cookie(t *testing.T) {
 }
 
 func Test_CSRF_ErrorHandler_InvalidToken(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
-	errHandler := func(ctx *fiber.Ctx, err error) error {
+	errHandler := func(req *lightning.Request, res *lightning.Response, err error) error {
 		utils.AssertEqual(t, errTokenNotFound, err)
-		return ctx.Status(419).Send([]byte("invalid CSRF token"))
+		return res.Status(419).Bytes([]byte("invalid CSRF token"))
 	}
 
 	app.Use(New(Config{ErrorHandler: errHandler}))
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()
@@ -268,17 +268,17 @@ func Test_CSRF_ErrorHandler_InvalidToken(t *testing.T) {
 }
 
 func Test_CSRF_ErrorHandler_EmptyToken(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
-	errHandler := func(ctx *fiber.Ctx, err error) error {
+	errHandler := func(req *lightning.Request, res *lightning.Response, err error) error {
 		utils.AssertEqual(t, errMissingHeader, err)
-		return ctx.Status(419).Send([]byte("empty CSRF token"))
+		return res.Status(419).Bytes([]byte("empty CSRF token"))
 	}
 
 	app.Use(New(Config{ErrorHandler: errHandler}))
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusOK).Send()
 	})
 
 	h := app.Handler()

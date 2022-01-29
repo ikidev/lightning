@@ -2,12 +2,14 @@
 // 🤖 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"github.com/ikidev/lightning/utils"
+	"github.com/valyala/bytebufferpool"
 	"hash/crc32"
 	"io"
 	"log"
@@ -19,8 +21,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/gofiber/fiber/v2/internal/bytebufferpool"
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -446,7 +446,7 @@ const (
 	MIMEApplicationJavaScriptCharsetUTF8 = "application/javascript; charset=utf-8"
 )
 
-// HTTP status codes were copied from net/http.
+// HTTP StatusCode codes were copied from net/http.
 const (
 	StatusContinue                      = 100 // RFC 7231, 6.2.1
 	StatusSwitchingProtocols            = 101 // RFC 7231, 6.2.2
@@ -678,7 +678,7 @@ const (
 	HeaderUpgrade                 = "Upgrade"
 	HeaderXDNSPrefetchControl     = "X-DNS-Prefetch-Control"
 	HeaderXPingback               = "X-Pingback"
-	HeaderXRequestID              = "X-Request-ID"
+	HeaderXRequestID              = "X-Request-Id"
 	HeaderXRequestedWith          = "X-Requested-With"
 	HeaderXRobotsTag              = "X-Robots-Tag"
 	HeaderXUACompatible           = "X-UA-Compatible"

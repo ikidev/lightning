@@ -1,30 +1,30 @@
 package requestid
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 		// Get id from request, else we generate one
-		rid := c.Get(cfg.Header, cfg.Generator())
+		rid := res.Header.Get(cfg.Header, cfg.Generator())
 
 		// Set new id to response header
-		c.Set(cfg.Header, rid)
+		res.Header.Set(cfg.Header, rid)
 
 		// Add the request ID to locals
-		c.Locals(cfg.ContextKey, rid)
+		req.Locals(cfg.ContextKey, rid)
 
 		// Continue stack
-		return c.Next()
+		return req.Next()
 	}
 }

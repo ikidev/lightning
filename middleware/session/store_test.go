@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -14,7 +14,7 @@ func TestStore_getSessionID(t *testing.T) {
 	expectedID := "test-session-id"
 
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 
 	t.Run("from cookie", func(t *testing.T) {
 		// session store
@@ -62,7 +62,7 @@ func TestStore_getSessionID(t *testing.T) {
 func TestStore_Get(t *testing.T) {
 	unexpectedID := "test-session-id"
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 	t.Run("session should persisted even session is invalid", func(t *testing.T) {
 		// session store
 		store := New()

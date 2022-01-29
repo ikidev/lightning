@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // Config defines the config for middleware.
@@ -17,7 +17,7 @@ type Config struct {
 
 	// Storage interface to store the session data
 	// Optional. Default value memory.New()
-	Storage fiber.Storage
+	Storage lightning.Storage
 
 	// KeyLookup is a string in the form of "<source>:<name>" that is used
 	// to extract session id from the request.

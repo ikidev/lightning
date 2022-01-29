@@ -1,4 +1,4 @@
-package fiber
+package lightning
 
 import (
 	"bytes"
@@ -16,10 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/internal/go-json"
-	"github.com/gofiber/fiber/v2/internal/tlstest"
-	"github.com/gofiber/fiber/v2/internal/uuid"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/internal/tlstest"
+	"github.com/ikidev/lightning/internal/uuid"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
@@ -30,8 +29,8 @@ func Test_Client_Invalid_URL(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString(c.Hostname())
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String(req.Hostname())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -67,8 +66,8 @@ func Test_Client_Get(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString(c.Hostname())
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String(req.Hostname())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -93,8 +92,8 @@ func Test_Client_Head(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString(c.Hostname())
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String(req.Hostname())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -119,9 +118,8 @@ func Test_Client_Post(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Post("/", func(c *Ctx) error {
-		return c.Status(StatusCreated).
-			SendString(c.FormValue("foo"))
+	app.Post("/", func(req *Request, res *Response) error {
+		return res.Status(StatusCreated).String(req.FormValue("foo"))
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -153,8 +151,8 @@ func Test_Client_Put(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Put("/", func(c *Ctx) error {
-		return c.SendString(c.FormValue("foo"))
+	app.Put("/", func(req *Request, res *Response) error {
+		return res.String(req.FormValue("foo"))
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -186,8 +184,8 @@ func Test_Client_Patch(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Patch("/", func(c *Ctx) error {
-		return c.SendString(c.FormValue("foo"))
+	app.Patch("/", func(req *Request, res *Response) error {
+		return res.String(req.FormValue("foo"))
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -219,9 +217,9 @@ func Test_Client_Delete(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Delete("/", func(c *Ctx) error {
-		return c.Status(StatusNoContent).
-			SendString("deleted")
+	app.Delete("/", func(req *Request, res *Response) error {
+		return res.Status(StatusNoContent).
+			String("deleted")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -250,8 +248,8 @@ func Test_Client_UserAgent(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.Send(c.Request().Header.UserAgent())
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String(req.UserAgent())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -290,11 +288,11 @@ func Test_Client_UserAgent(t *testing.T) {
 }
 
 func Test_Client_Agent_Set_Or_Add_Headers(t *testing.T) {
-	handler := func(c *Ctx) error {
-		c.Request().Header.VisitAll(func(key, value []byte) {
-			if k := string(key); k == "K1" || k == "K2" {
-				_, _ = c.Write(key)
-				_, _ = c.Write(value)
+	handler := func(req *Request, res *Response) error {
+		req.ctx.fasthttp.Request.Header.VisitAll(func(key, value []byte) {
+			if k := key; string(k) == "K1" || string(k) == "K2" {
+				_, _ = res.Append(k)
+				_, _ = res.Append(value)
 			}
 		})
 		return nil
@@ -315,11 +313,11 @@ func Test_Client_Agent_Set_Or_Add_Headers(t *testing.T) {
 }
 
 func Test_Client_Agent_Connection_Close(t *testing.T) {
-	handler := func(c *Ctx) error {
-		if c.Request().Header.ConnectionClose() {
-			return c.SendString("close")
+	handler := func(req *Request, res *Response) error {
+		if req.IsConnectionClose() {
+			return res.String("close")
 		}
-		return c.SendString("not close")
+		return res.String("not close")
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -330,8 +328,8 @@ func Test_Client_Agent_Connection_Close(t *testing.T) {
 }
 
 func Test_Client_Agent_UserAgent(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Header.UserAgent())
+	handler := func(req *Request, res *Response) error {
+		return res.String(req.UserAgent())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -343,9 +341,8 @@ func Test_Client_Agent_UserAgent(t *testing.T) {
 }
 
 func Test_Client_Agent_Cookie(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.SendString(
-			c.Cookies("k1") + c.Cookies("k2") + c.Cookies("k3") + c.Cookies("k4"))
+	handler := func(req *Request, res *Response) error {
+		return res.String(req.GetCookie("k1") + req.GetCookie("k2") + req.GetCookie("k3") + req.GetCookie("k4"))
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -360,8 +357,8 @@ func Test_Client_Agent_Cookie(t *testing.T) {
 }
 
 func Test_Client_Agent_Referer(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Header.Referer())
+	handler := func(req *Request, res *Response) error {
+		return res.String(req.Referer())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -373,8 +370,8 @@ func Test_Client_Agent_Referer(t *testing.T) {
 }
 
 func Test_Client_Agent_ContentType(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Header.ContentType())
+	handler := func(req *Request, res *Response) error {
+		return res.String(req.Header.ContentType())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -392,8 +389,8 @@ func Test_Client_Agent_Host(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString(c.Hostname())
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String(req.Hostname())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -414,8 +411,8 @@ func Test_Client_Agent_Host(t *testing.T) {
 }
 
 func Test_Client_Agent_QueryString(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().URI().QueryString())
+	handler := func(req *Request, res *Response) error {
+		return res.String(req.QueryString())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -427,14 +424,14 @@ func Test_Client_Agent_QueryString(t *testing.T) {
 }
 
 func Test_Client_Agent_BasicAuth(t *testing.T) {
-	handler := func(c *Ctx) error {
+	handler := func(req *Request, res *Response) error {
 		// Get authorization header
-		auth := c.Get(HeaderAuthorization)
+		auth := req.Header.Get(HeaderAuthorization)
 		// Decode the header contents
 		raw, err := base64.StdEncoding.DecodeString(auth[6:])
 		utils.AssertEqual(t, nil, err)
 
-		return c.Send(raw)
+		return res.Bytes(raw)
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -446,8 +443,8 @@ func Test_Client_Agent_BasicAuth(t *testing.T) {
 }
 
 func Test_Client_Agent_BodyString(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Body())
+	handler := func(req *Request, res *Response) error {
+		return res.Bytes(req.Body())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -458,8 +455,8 @@ func Test_Client_Agent_BodyString(t *testing.T) {
 }
 
 func Test_Client_Agent_Body(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Body())
+	handler := func(req *Request, res *Response) error {
+		return res.Bytes(req.Body())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -470,8 +467,8 @@ func Test_Client_Agent_Body(t *testing.T) {
 }
 
 func Test_Client_Agent_BodyStream(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.Send(c.Request().Body())
+	handler := func(req *Request, res *Response) error {
+		return res.Bytes(req.Body())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -488,8 +485,8 @@ func Test_Client_Agent_Custom_Response(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("custom")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("custom")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -525,8 +522,8 @@ func Test_Client_Agent_Dest(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("dest")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("dest")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -588,7 +585,7 @@ func Test_Client_Stdjson_Gojson(t *testing.T) {
 	expected, err := stdjson.Marshal(user1)
 	utils.AssertEqual(t, nil, err)
 
-	got, err := json.Marshal(user1)
+	got, err := stdjson.Marshal(user1)
 	utils.AssertEqual(t, nil, err)
 
 	utils.AssertEqual(t, expected, got)
@@ -614,17 +611,17 @@ func Test_Client_Stdjson_Gojson(t *testing.T) {
 	expected, err = stdjson.Marshal(test)
 	utils.AssertEqual(t, nil, err)
 
-	got, err = json.Marshal(test)
+	got, err = stdjson.Marshal(test)
 	utils.AssertEqual(t, nil, err)
 
 	utils.AssertEqual(t, expected, got)
 }
 
 func Test_Client_Agent_Json(t *testing.T) {
-	handler := func(c *Ctx) error {
-		utils.AssertEqual(t, MIMEApplicationJSON, string(c.Request().Header.ContentType()))
+	handler := func(req *Request, res *Response) error {
+		utils.AssertEqual(t, MIMEApplicationJSON, req.Header.ContentType())
 
-		return c.Send(c.Request().Body())
+		return res.Bytes(req.Body())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -636,7 +633,7 @@ func Test_Client_Agent_Json(t *testing.T) {
 
 func Test_Client_Agent_Json_Error(t *testing.T) {
 	a := Get("http://example.com").
-		JSONEncoder(json.Marshal).
+		JSONEncoder(stdjson.Marshal).
 		JSON(complex(1, 1))
 
 	_, body, errs := a.String()
@@ -647,10 +644,10 @@ func Test_Client_Agent_Json_Error(t *testing.T) {
 }
 
 func Test_Client_Agent_XML(t *testing.T) {
-	handler := func(c *Ctx) error {
-		utils.AssertEqual(t, MIMEApplicationXML, string(c.Request().Header.ContentType()))
+	handler := func(req *Request, res *Response) error {
+		utils.AssertEqual(t, MIMEApplicationXML, req.Header.ContentType())
 
-		return c.Send(c.Request().Body())
+		return res.Bytes(req.Body())
 	}
 
 	wrapAgent := func(a *Agent) {
@@ -672,10 +669,10 @@ func Test_Client_Agent_XML_Error(t *testing.T) {
 }
 
 func Test_Client_Agent_Form(t *testing.T) {
-	handler := func(c *Ctx) error {
-		utils.AssertEqual(t, MIMEApplicationForm, string(c.Request().Header.ContentType()))
+	handler := func(req *Request, res *Response) error {
+		utils.AssertEqual(t, MIMEApplicationForm, req.Header.ContentType())
 
-		return c.Send(c.Request().Body())
+		return res.Bytes(req.Body())
 	}
 
 	args := AcquireArgs()
@@ -698,14 +695,14 @@ func Test_Client_Agent_MultipartForm(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Post("/", func(c *Ctx) error {
-		utils.AssertEqual(t, "multipart/form-data; boundary=myBoundary", c.Get(HeaderContentType))
+	app.Post("/", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "multipart/form-data; boundary=myBoundary", req.Header.Get(HeaderContentType))
 
-		mf, err := c.MultipartForm()
+		mf, err := req.MultipartForm()
 		utils.AssertEqual(t, nil, err)
 		utils.AssertEqual(t, "bar", mf.Value["foo"][0])
 
-		return c.Send(c.Request().Body())
+		return res.Bytes(req.Body())
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -753,10 +750,10 @@ func Test_Client_Agent_MultipartForm_SendFiles(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Post("/", func(c *Ctx) error {
-		utils.AssertEqual(t, "multipart/form-data; boundary=myBoundary", c.Get(HeaderContentType))
+	app.Post("/", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "multipart/form-data; boundary=myBoundary", req.Header.Get(HeaderContentType))
 
-		fh1, err := c.FormFile("field1")
+		fh1, err := req.FormFile("field1")
 		utils.AssertEqual(t, nil, err)
 		utils.AssertEqual(t, fh1.Filename, "name")
 		buf := make([]byte, fh1.Size)
@@ -767,15 +764,15 @@ func Test_Client_Agent_MultipartForm_SendFiles(t *testing.T) {
 		utils.AssertEqual(t, nil, err)
 		utils.AssertEqual(t, "form file", string(buf))
 
-		fh2, err := c.FormFile("index")
+		fh2, err := req.FormFile("index")
 		utils.AssertEqual(t, nil, err)
 		checkFormFile(t, fh2, ".github/testdata/index.html")
 
-		fh3, err := c.FormFile("file3")
+		fh3, err := req.FormFile("file3")
 		utils.AssertEqual(t, nil, err)
 		checkFormFile(t, fh3, ".github/testdata/index.tmpl")
 
-		return c.SendString("multipart form files")
+		return res.String("multipart form files")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -855,8 +852,8 @@ func Test_Client_Agent_SendFile_Error(t *testing.T) {
 }
 
 func Test_Client_Debug(t *testing.T) {
-	handler := func(c *Ctx) error {
-		return c.SendString("debug")
+	handler := func(req *Request, res *Response) error {
+		return res.String("debug")
 	}
 
 	var output bytes.Buffer
@@ -884,9 +881,9 @@ func Test_Client_Agent_Timeout(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		time.Sleep(time.Millisecond * 200)
-		return c.SendString("timeout")
+		return res.String("timeout")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -910,8 +907,8 @@ func Test_Client_Agent_Reuse(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("reuse")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("reuse")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -951,8 +948,8 @@ func Test_Client_Agent_InsecureSkipVerify(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("ignore tls")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("ignore tls")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -980,8 +977,8 @@ func Test_Client_Agent_TLS(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("tls")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("tls")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -1002,14 +999,14 @@ func Test_Client_Agent_MaxRedirectsCount(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		if c.Request().URI().QueryArgs().Has("foo") {
-			return c.Redirect("/foo")
+	app.Get("/", func(req *Request, res *Response) error {
+		if req.QueryArgs().Has("foo") {
+			return req.Redirect("/foo")
 		}
-		return c.Redirect("/")
+		return req.Redirect("/")
 	})
-	app.Get("/foo", func(c *Ctx) error {
-		return c.SendString("redirect")
+	app.Get("/foo", func(req *Request, res *Response) error {
+		return res.String("redirect")
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -1048,12 +1045,12 @@ func Test_Client_Agent_Struct(t *testing.T) {
 
 	app := New(Config{DisableStartupMessage: true})
 
-	app.Get("/", func(c *Ctx) error {
-		return c.JSON(data{true})
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.JSON(data{true})
 	})
 
-	app.Get("/error", func(c *Ctx) error {
-		return c.SendString(`{"success"`)
+	app.Get("/error", func(req *Request, res *Response) error {
+		return res.String(`{"success"`)
 	})
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
@@ -1098,12 +1095,12 @@ func Test_Client_Agent_Struct(t *testing.T) {
 
 		var d data
 
-		code, body, errs := a.JSONDecoder(json.Unmarshal).Struct(&d)
+		code, body, errs := a.JSONDecoder(stdjson.Unmarshal).Struct(&d)
 
 		utils.AssertEqual(t, StatusOK, code)
 		utils.AssertEqual(t, `{"success"`, string(body))
 		utils.AssertEqual(t, 1, len(errs))
-		utils.AssertEqual(t, "expected colon after object key", errs[0].Error())
+		utils.AssertEqual(t, "unexpected end of JSON input", errs[0].Error())
 	})
 }
 

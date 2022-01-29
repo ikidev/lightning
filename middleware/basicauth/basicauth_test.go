@@ -8,8 +8,8 @@ import (
 
 	b64 "encoding/base64"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -17,21 +17,21 @@ import (
 func Test_BasicAuth_Next(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(req *lightning.Request, res *lightning.Response) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }
 
 func Test_Middleware_BasicAuth(t *testing.T) {
 	t.Parallel()
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Users: map[string]string{
@@ -40,11 +40,11 @@ func Test_Middleware_BasicAuth(t *testing.T) {
 		},
 	}))
 
-	app.Get("/testauth", func(c *fiber.Ctx) error {
-		username := c.Locals("username").(string)
-		password := c.Locals("password").(string)
+	app.Get("/testauth", func(req *lightning.Request, res *lightning.Response) error {
+		username := req.Locals("username").(string)
+		password := req.Locals("password").(string)
 
-		return c.SendString(username + password)
+		return res.String(username + password)
 	})
 
 	tests := []struct {
@@ -95,15 +95,15 @@ func Test_Middleware_BasicAuth(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Middleware_BasicAuth -benchmem -count=4
 func Benchmark_Middleware_BasicAuth(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Users: map[string]string{
 			"john": "doe",
 		},
 	}))
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusTeapot)
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusTeapot).Send()
 	})
 
 	h := app.Handler()
@@ -111,7 +111,7 @@ func Benchmark_Middleware_BasicAuth(b *testing.B) {
 	fctx := &fasthttp.RequestCtx{}
 	fctx.Request.Header.SetMethod("GET")
 	fctx.Request.SetRequestURI("/")
-	fctx.Request.Header.Set(fiber.HeaderAuthorization, "basic am9objpkb2U=") // john:doe
+	fctx.Request.Header.Set(lightning.HeaderAuthorization, "basic am9objpkb2U=") // john:doe
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -120,5 +120,5 @@ func Benchmark_Middleware_BasicAuth(b *testing.B) {
 		h(fctx)
 	}
 
-	utils.AssertEqual(b, fiber.StatusTeapot, fctx.Response.Header.StatusCode())
+	utils.AssertEqual(b, lightning.StatusTeapot, fctx.Response.Header.StatusCode())
 }

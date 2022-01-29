@@ -2,7 +2,7 @@
 // 📝 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 import (
 	"crypto/tls"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 

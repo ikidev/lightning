@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/storage/memory"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/storage/memory"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -18,7 +18,7 @@ import (
 func Test_Limiter_Concurrency_Store(t *testing.T) {
 	// Test concurrency using a custom store
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:        50,
@@ -26,7 +26,7 @@ func Test_Limiter_Concurrency_Store(t *testing.T) {
 		Storage:    memory.New(),
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello tester!")
 	})
 
@@ -35,7 +35,7 @@ func Test_Limiter_Concurrency_Store(t *testing.T) {
 		defer wg.Done()
 		resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
 		utils.AssertEqual(t, nil, err)
-		utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+		utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 		body, err := ioutil.ReadAll(resp.Body)
 		utils.AssertEqual(t, nil, err)
@@ -64,14 +64,14 @@ func Test_Limiter_Concurrency_Store(t *testing.T) {
 func Test_Limiter_Concurrency(t *testing.T) {
 	// Test concurrency using a default store
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:        50,
 		Expiration: 2 * time.Second,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello tester!")
 	})
 
@@ -80,7 +80,7 @@ func Test_Limiter_Concurrency(t *testing.T) {
 		defer wg.Done()
 		resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
 		utils.AssertEqual(t, nil, err)
-		utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+		utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 		body, err := ioutil.ReadAll(resp.Body)
 		utils.AssertEqual(t, nil, err)
@@ -107,7 +107,7 @@ func Test_Limiter_Concurrency(t *testing.T) {
 
 // go test -run Test_Limiter_No_Skip_Choices -v
 func Test_Limiter_No_Skip_Choices(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:                    2,
@@ -116,7 +116,7 @@ func Test_Limiter_No_Skip_Choices(t *testing.T) {
 		SkipSuccessfulRequests: false,
 	}))
 
-	app.Get("/:status", func(c *fiber.Ctx) error {
+	app.Get("/:status", func(c *lightning.Ctx) error {
 		if c.Params("status") == "fail" {
 			return c.SendStatus(400)
 		}
@@ -138,7 +138,7 @@ func Test_Limiter_No_Skip_Choices(t *testing.T) {
 
 // go test -run Test_Limiter_Skip_Failed_Requests -v
 func Test_Limiter_Skip_Failed_Requests(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:                1,
@@ -146,7 +146,7 @@ func Test_Limiter_Skip_Failed_Requests(t *testing.T) {
 		SkipFailedRequests: true,
 	}))
 
-	app.Get("/:status", func(c *fiber.Ctx) error {
+	app.Get("/:status", func(c *lightning.Ctx) error {
 		if c.Params("status") == "fail" {
 			return c.SendStatus(400)
 		}
@@ -176,7 +176,7 @@ func Test_Limiter_Skip_Failed_Requests(t *testing.T) {
 func Test_Limiter_Skip_Successful_Requests(t *testing.T) {
 	// Test concurrency using a default store
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:                    1,
@@ -184,7 +184,7 @@ func Test_Limiter_Skip_Successful_Requests(t *testing.T) {
 		SkipSuccessfulRequests: true,
 	}))
 
-	app.Get("/:status", func(c *fiber.Ctx) error {
+	app.Get("/:status", func(c *lightning.Ctx) error {
 		if c.Params("status") == "fail" {
 			return c.SendStatus(400)
 		}
@@ -212,7 +212,7 @@ func Test_Limiter_Skip_Successful_Requests(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Limiter_Custom_Store -benchmem -count=4
 func Benchmark_Limiter_Custom_Store(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:        100,
@@ -220,7 +220,7 @@ func Benchmark_Limiter_Custom_Store(b *testing.B) {
 		Storage:    memory.New(),
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello, World!")
 	})
 
@@ -239,27 +239,27 @@ func Benchmark_Limiter_Custom_Store(b *testing.B) {
 
 // go test -run Test_Limiter_Next
 func Test_Limiter_Next(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Ctx) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }
 
 func Test_Limiter_Headers(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:        50,
 		Expiration: 2 * time.Second,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello tester!")
 	})
 
@@ -280,14 +280,14 @@ func Test_Limiter_Headers(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Limiter -benchmem -count=4
 func Benchmark_Limiter(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Max:        100,
 		Expiration: 60 * time.Second,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello, World!")
 	})
 
@@ -306,7 +306,7 @@ func Benchmark_Limiter(b *testing.B) {
 
 // go test -run Test_Sliding_Window -race -v
 func Test_Sliding_Window(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
 		Max:               10,
 		Expiration:        2 * time.Second,
@@ -314,7 +314,7 @@ func Test_Sliding_Window(t *testing.T) {
 		LimiterMiddleware: SlidingWindow{},
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *lightning.Ctx) error {
 		return c.SendString("Hello tester!")
 	})
 
@@ -325,7 +325,7 @@ func Test_Sliding_Window(t *testing.T) {
 			utils.AssertEqual(t, 429, resp.StatusCode)
 		} else {
 			utils.AssertEqual(t, nil, err)
-			utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+			utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 		}
 	}
 

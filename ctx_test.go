@@ -2,7 +2,7 @@
 // 🤖 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 // go test -v -run=^$ -bench=Benchmark_Ctx_Accepts -benchmem -count=4
 // go test -run Test_Ctx
@@ -26,8 +26,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/gofiber/fiber/v2/internal/bytebufferpool"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/internal/bytebufferpool"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -594,18 +594,18 @@ func Test_Ctx_UserContext_Multiple_Requests(t *testing.T) {
 	testValue := "foobar-value"
 
 	app := New()
-	app.Get("/", func(c *Ctx) error {
-		ctx := c.UserContext()
+	app.Get("/", func(req *Request, res *Response) error {
+		ctx := req.ctx.UserContext()
 
 		if ctx.Value(testKey) != nil {
-			return c.SendStatus(StatusInternalServerError)
+			return res.Status(StatusInternalServerError).Send()
 		}
 
-		input := utils.CopyString(c.Query("input", "NO_VALUE"))
+		input := utils.CopyString(req.Query("input", "NO_VALUE"))
 		ctx = context.WithValue(ctx, testKey, fmt.Sprintf("%s_%s", testValue, input))
-		c.SetUserContext(ctx)
+		req.ctx.SetUserContext(ctx)
 
-		return c.Status(StatusOK).SendString(fmt.Sprintf("resp_%s_returned", input))
+		return res.Status(StatusOK).String(fmt.Sprintf("resp_%s_returned", input))
 	})
 
 	// Consecutive Requests
@@ -788,8 +788,8 @@ func Test_Ctx_FormFile(t *testing.T) {
 	t.Parallel()
 	app := New()
 
-	app.Post("/test", func(c *Ctx) error {
-		fh, err := c.FormFile("file")
+	app.Post("/test", func(req *Request, res *Response) error {
+		fh, err := req.FormFile("file")
 		utils.AssertEqual(t, nil, err)
 		utils.AssertEqual(t, "test", fh.Filename)
 
@@ -830,8 +830,8 @@ func Test_Ctx_FormValue(t *testing.T) {
 	t.Parallel()
 	app := New()
 
-	app.Post("/test", func(c *Ctx) error {
-		utils.AssertEqual(t, "john", c.FormValue("name"))
+	app.Post("/test", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "john", req.FormValue("name"))
 		return nil
 	})
 
@@ -1141,12 +1141,12 @@ func Benchmark_Ctx_Is(b *testing.B) {
 // go test -run Test_Ctx_Locals
 func Test_Ctx_Locals(t *testing.T) {
 	app := New()
-	app.Use(func(c *Ctx) error {
-		c.Locals("john", "doe")
-		return c.Next()
+	app.Use(func(req *Request, res *Response) error {
+		req.Locals("john", "doe")
+		return req.Next()
 	})
-	app.Get("/test", func(c *Ctx) error {
-		utils.AssertEqual(t, "doe", c.Locals("john"))
+	app.Get("/test", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "doe", req.Locals("john"))
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/test", nil))
@@ -1174,7 +1174,7 @@ func Test_Ctx_Method(t *testing.T) {
 func Test_Ctx_InvalidMethod(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		return nil
 	})
 
@@ -1193,8 +1193,8 @@ func Test_Ctx_MultipartForm(t *testing.T) {
 	t.Parallel()
 	app := New()
 
-	app.Post("/test", func(c *Ctx) error {
-		result, err := c.MultipartForm()
+	app.Post("/test", func(req *Request, res *Response) error {
+		result, err := req.MultipartForm()
 		utils.AssertEqual(t, nil, err)
 		utils.AssertEqual(t, "john", result.Value["name"][0])
 		return nil
@@ -1219,8 +1219,8 @@ func Test_Ctx_MultipartForm(t *testing.T) {
 func Benchmark_Ctx_MultipartForm(b *testing.B) {
 	app := New()
 
-	app.Post("/", func(c *Ctx) error {
-		_, _ = c.MultipartForm()
+	app.Post("/", func(req *Request, res *Response) error {
+		_, _ = req.MultipartForm()
 		return nil
 	})
 
@@ -1255,22 +1255,22 @@ func Test_Ctx_OriginalURL(t *testing.T) {
 func Test_Ctx_Params(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/test/:user", func(c *Ctx) error {
-		utils.AssertEqual(t, "john", c.Params("user"))
+	app.Get("/test/:user", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "john", req.UrlParam("user"))
 		return nil
 	})
-	app.Get("/test2/*", func(c *Ctx) error {
-		utils.AssertEqual(t, "im/a/cookie", c.Params("*"))
+	app.Get("/test2/*", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "im/a/cookie", req.UrlParam("*"))
 		return nil
 	})
-	app.Get("/test3/*/blafasel/*", func(c *Ctx) error {
-		utils.AssertEqual(t, "1111", c.Params("*1"))
-		utils.AssertEqual(t, "2222", c.Params("*2"))
-		utils.AssertEqual(t, "1111", c.Params("*"))
+	app.Get("/test3/*/blafasel/*", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "1111", req.UrlParam("*1"))
+		utils.AssertEqual(t, "2222", req.UrlParam("*2"))
+		utils.AssertEqual(t, "1111", req.UrlParam("*"))
 		return nil
 	})
-	app.Get("/test4/:optional?", func(c *Ctx) error {
-		utils.AssertEqual(t, "", c.Params("optional"))
+	app.Get("/test4/:optional?", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "", req.UrlParam("optional"))
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/test/john", nil))
@@ -1319,19 +1319,19 @@ func Benchmark_Ctx_Params(b *testing.B) {
 func Test_Ctx_Path(t *testing.T) {
 	t.Parallel()
 	app := New(Config{UnescapePath: true})
-	app.Get("/test/:user", func(c *Ctx) error {
-		utils.AssertEqual(t, "/Test/John", c.Path())
+	app.Get("/test/:user", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/Test/John", req.Path())
 		// not strict && case insensitive
-		utils.AssertEqual(t, "/ABC/", c.Path("/ABC/"))
-		utils.AssertEqual(t, "/test/john/", c.Path("/test/john/"))
+		utils.AssertEqual(t, "/ABC/", req.Path("/ABC/"))
+		utils.AssertEqual(t, "/test/john/", req.Path("/test/john/"))
 		return nil
 	})
 
 	// test with special chars
-	app.Get("/specialChars/:name", func(c *Ctx) error {
-		utils.AssertEqual(t, "/specialChars/créer", c.Path())
+	app.Get("/specialChars/:name", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/specialChars/créer", req.Path())
 		// unescape is also working if you set the path afterwards
-		utils.AssertEqual(t, "/اختبار/", c.Path("/%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1/"))
+		utils.AssertEqual(t, "/اختبار/", req.Path("/%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1/"))
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/specialChars/cr%C3%A9er", nil))
@@ -1543,8 +1543,8 @@ func Test_Ctx_Range(t *testing.T) {
 func Test_Ctx_Route(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/test", func(c *Ctx) error {
-		utils.AssertEqual(t, "/test", c.Route().Path)
+	app.Get("/test", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/test", req.Route().Path)
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/test", nil))
@@ -1563,8 +1563,8 @@ func Test_Ctx_Route(t *testing.T) {
 func Test_Ctx_RouteNormalized(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/test", func(c *Ctx) error {
-		utils.AssertEqual(t, "/test", c.Route().Path)
+	app.Get("/test", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/test", req.Route().Path)
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "//test", nil))
@@ -1578,15 +1578,15 @@ func Test_Ctx_SaveFile(t *testing.T) {
 	t.Parallel()
 	app := New()
 
-	app.Post("/test", func(c *Ctx) error {
-		fh, err := c.FormFile("file")
+	app.Post("/test", func(req *Request, res *Response) error {
+		fh, err := req.FormFile("file")
 		utils.AssertEqual(t, nil, err)
 
 		tempFile, err := ioutil.TempFile(os.TempDir(), "test-")
 		utils.AssertEqual(t, nil, err)
 
 		defer os.Remove(tempFile.Name())
-		err = c.SaveFile(fh, tempFile.Name())
+		err = req.SaveFile(fh, tempFile.Name())
 		utils.AssertEqual(t, nil, err)
 
 		bs, err := ioutil.ReadFile(tempFile.Name())
@@ -1748,8 +1748,8 @@ func Test_Ctx_SendFile(t *testing.T) {
 func Test_Ctx_SendFile_404(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/", func(c *Ctx) error {
-		err := c.SendFile("./john_dow.go/")
+	app.Get("/", func(req *Request, res *Response) error {
+		err := res.File("./john_dow.go/")
 		utils.AssertEqual(t, false, err == nil)
 		return err
 	})
@@ -1763,13 +1763,13 @@ func Test_Ctx_SendFile_404(t *testing.T) {
 func Test_Ctx_SendFile_Immutable(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/:file", func(c *Ctx) error {
-		file := c.Params("file")
-		if err := c.SendFile("./.github/" + file + ".html"); err != nil {
+	app.Get("/:file", func(req *Request, res *Response) error {
+		file := req.UrlParam("file")
+		if err := res.File("./.github/" + file + ".html"); err != nil {
 			utils.AssertEqual(t, nil, err)
 		}
 		utils.AssertEqual(t, "index", file)
-		return c.SendString(file)
+		return res.String(file)
 	})
 	// 1st try
 	resp, err := app.Test(httptest.NewRequest("GET", "/index", nil))
@@ -1785,10 +1785,10 @@ func Test_Ctx_SendFile_Immutable(t *testing.T) {
 func Test_Ctx_SendFile_RestoreOriginalURL(t *testing.T) {
 	t.Parallel()
 	app := New()
-	app.Get("/", func(c *Ctx) error {
-		originalURL := c.OriginalURL()
-		err := c.SendFile("ctx.go")
-		utils.AssertEqual(t, originalURL, c.OriginalURL())
+	app.Get("/", func(req *Request, res *Response) error {
+		originalURL := req.OriginalURL()
+		err := res.File("ctx.go")
+		utils.AssertEqual(t, originalURL, req.OriginalURL())
 		return err
 	})
 
@@ -1940,11 +1940,11 @@ func Test_Ctx_Location(t *testing.T) {
 // go test -run Test_Ctx_Next
 func Test_Ctx_Next(t *testing.T) {
 	app := New()
-	app.Use("/", func(c *Ctx) error {
-		return c.Next()
+	app.Use("/", func(req *Request, res *Response) error {
+		return req.Next()
 	})
-	app.Get("/test", func(c *Ctx) error {
-		c.Set("X-Next-Result", "Works")
+	app.Get("/test", func(req *Request, res *Response) error {
+		res.Header.Set("X-Next-Result", "Works")
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "http://example.com/test", nil))
@@ -1956,8 +1956,8 @@ func Test_Ctx_Next(t *testing.T) {
 // go test -run Test_Ctx_Next_Error
 func Test_Ctx_Next_Error(t *testing.T) {
 	app := New()
-	app.Use("/", func(c *Ctx) error {
-		c.Set("X-Next-Result", "Works")
+	app.Use("/", func(req *Request, res *Response) error {
+		res.Header.Set("X-Next-Result", "Works")
 		return ErrNotFound
 	})
 
@@ -2908,7 +2908,7 @@ func Benchmark_Ctx_QueryParser_Comma(b *testing.B) {
 	}
 	c.Request().SetBody([]byte(``))
 	c.Request().Header.SetContentType("")
-	// c.Request().URI().SetQueryString("id=1&name=tom&hobby=basketball&hobby=football")
+	// c.FHRequest().URI().SetQueryString("id=1&name=tom&hobby=basketball&hobby=football")
 	c.Request().URI().SetQueryString("id=1&name=tom&hobby=basketball,football")
 	q := new(Query)
 	b.ReportAllocs()
@@ -3014,19 +3014,14 @@ func TestCtx_ParamsInt(t *testing.T) {
 
 	// For the user id I will use the number 1111, so I should be able to get the number
 	// 1111 from the Ctx
-	app.Get("/test/:user", func(c *Ctx) error {
+	app.Get("/test/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num, err := c.ParamsInt("user")
+		num := req.IntUrlParam("user")
 
 		// Check the number matches
 		if num != 1111 {
 			t.Fatalf("Expected number 1111 from the path, got %d", num)
-		}
-
-		// Check no errors are returned, because we want NO errors in this one
-		if err != nil {
-			t.Fatalf("Expected nil error for 1111 test, got " + err.Error())
 		}
 
 		return nil
@@ -3034,19 +3029,14 @@ func TestCtx_ParamsInt(t *testing.T) {
 
 	// In this test case, there will be a bad request where the expected number is NOT
 	// a number in the path
-	app.Get("/testnoint/:user", func(c *Ctx) error {
+	app.Get("/testnoint/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num, err := c.ParamsInt("user")
+		num := req.IntUrlParam("user")
 
 		// Check the number matches
 		if num != 0 {
 			t.Fatalf("Expected number 0 from the path, got %d", num)
-		}
-
-		// Check an error is returned, because we want NO errors in this one
-		if err == nil {
-			t.Fatal("Expected non nil error for bad req test, got nil")
 		}
 
 		return nil
@@ -3054,19 +3044,14 @@ func TestCtx_ParamsInt(t *testing.T) {
 
 	// For the user id I will use the number 2222, so I should be able to get the number
 	// 2222 from the Ctx even when the default value is specified
-	app.Get("/testignoredefault/:user", func(c *Ctx) error {
+	app.Get("/testignoredefault/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num, err := c.ParamsInt("user", 1111)
+		num := req.IntUrlParam("user", 1111)
 
 		// Check the number matches
 		if num != 2222 {
 			t.Fatalf("Expected number 2222 from the path, got %d", num)
-		}
-
-		// Check no errors are returned, because we want NO errors in this one
-		if err != nil {
-			t.Fatalf("Expected nil error for 2222 test, got " + err.Error())
 		}
 
 		return nil
@@ -3074,19 +3059,14 @@ func TestCtx_ParamsInt(t *testing.T) {
 
 	// In this test case, there will be a bad request where the expected number is NOT
 	// a number in the path, default value of 1111 should be used instead
-	app.Get("/testdefault/:user", func(c *Ctx) error {
+	app.Get("/testdefault/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num, err := c.ParamsInt("user", 1111)
+		num := req.IntUrlParam("user", 1111)
 
 		// Check the number matches
 		if num != 1111 {
 			t.Fatalf("Expected number 1111 from the path, got %d", num)
-		}
-
-		// Check an error is returned, because we want NO errors in this one
-		if err != nil {
-			t.Fatalf("Expected nil error for 1111 test, got " + err.Error())
 		}
 
 		return nil

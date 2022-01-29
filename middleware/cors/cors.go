@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 // Config defines the config for middleware.
@@ -13,7 +13,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// AllowOrigin defines a list of origins that may access the resource.
 	//
@@ -58,12 +58,12 @@ var ConfigDefault = Config{
 	Next:         nil,
 	AllowOrigins: "*",
 	AllowMethods: strings.Join([]string{
-		fiber.MethodGet,
-		fiber.MethodPost,
-		fiber.MethodHead,
-		fiber.MethodPut,
-		fiber.MethodDelete,
-		fiber.MethodPatch,
+		lightning.MethodGet,
+		lightning.MethodPost,
+		lightning.MethodHead,
+		lightning.MethodPut,
+		lightning.MethodDelete,
+		lightning.MethodPatch,
 	}, ","),
 	AllowHeaders:     "",
 	AllowCredentials: false,
@@ -72,7 +72,7 @@ var ConfigDefault = Config{
 }
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := ConfigDefault
 
@@ -101,14 +101,14 @@ func New(config ...Config) fiber.Handler {
 	maxAge := strconv.Itoa(cfg.MaxAge)
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Get origin header
-		origin := c.Get(fiber.HeaderOrigin)
+		origin := req.Header.Get(lightning.HeaderOrigin)
 		allowOrigin := ""
 
 		// Check allowed origins
@@ -128,47 +128,47 @@ func New(config ...Config) fiber.Handler {
 		}
 
 		// Simple request
-		if c.Method() != http.MethodOptions {
-			c.Vary(fiber.HeaderOrigin)
-			c.Set(fiber.HeaderAccessControlAllowOrigin, allowOrigin)
+		if req.Method() != http.MethodOptions {
+			res.Ctx().Vary(lightning.HeaderOrigin)
+			res.Header.Set(lightning.HeaderAccessControlAllowOrigin, allowOrigin)
 
 			if cfg.AllowCredentials {
-				c.Set(fiber.HeaderAccessControlAllowCredentials, "true")
+				res.Header.Set(lightning.HeaderAccessControlAllowCredentials, "true")
 			}
 			if exposeHeaders != "" {
-				c.Set(fiber.HeaderAccessControlExposeHeaders, exposeHeaders)
+				res.Header.Set(lightning.HeaderAccessControlExposeHeaders, exposeHeaders)
 			}
-			return c.Next()
+			return req.Next()
 		}
 
 		// Preflight request
-		c.Vary(fiber.HeaderOrigin)
-		c.Vary(fiber.HeaderAccessControlRequestMethod)
-		c.Vary(fiber.HeaderAccessControlRequestHeaders)
-		c.Set(fiber.HeaderAccessControlAllowOrigin, allowOrigin)
-		c.Set(fiber.HeaderAccessControlAllowMethods, allowMethods)
+		res.Ctx().Vary(lightning.HeaderOrigin)
+		res.Ctx().Vary(lightning.HeaderAccessControlRequestMethod)
+		res.Ctx().Vary(lightning.HeaderAccessControlRequestHeaders)
+		res.Header.Set(lightning.HeaderAccessControlAllowOrigin, allowOrigin)
+		res.Header.Set(lightning.HeaderAccessControlAllowMethods, allowMethods)
 
 		// Set Allow-Credentials if set to true
 		if cfg.AllowCredentials {
-			c.Set(fiber.HeaderAccessControlAllowCredentials, "true")
+			res.Header.Set(lightning.HeaderAccessControlAllowCredentials, "true")
 		}
 
 		// Set Allow-Headers if not empty
 		if allowHeaders != "" {
-			c.Set(fiber.HeaderAccessControlAllowHeaders, allowHeaders)
+			res.Header.Set(lightning.HeaderAccessControlAllowHeaders, allowHeaders)
 		} else {
-			h := c.Get(fiber.HeaderAccessControlRequestHeaders)
+			h := req.Header.Get(lightning.HeaderAccessControlRequestHeaders)
 			if h != "" {
-				c.Set(fiber.HeaderAccessControlAllowHeaders, h)
+				res.Header.Set(lightning.HeaderAccessControlAllowHeaders, h)
 			}
 		}
 
 		// Set MaxAge is set
 		if cfg.MaxAge > 0 {
-			c.Set(fiber.HeaderAccessControlMaxAge, maxAge)
+			res.Header.Set(lightning.HeaderAccessControlMaxAge, maxAge)
 		}
 
 		// Send 204 No Content
-		return c.SendStatus(fiber.StatusNoContent)
+		return res.Status(lightning.StatusNoContent).Send()
 	}
 }

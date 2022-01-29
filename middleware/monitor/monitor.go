@@ -6,12 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/cpu"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/load"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/mem"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/net"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/process"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/gopsutil/cpu"
+	"github.com/ikidev/lightning/internal/gopsutil/load"
+	"github.com/ikidev/lightning/internal/gopsutil/mem"
+	"github.com/ikidev/lightning/internal/gopsutil/net"
+	"github.com/ikidev/lightning/internal/gopsutil/process"
 )
 
 type stats struct {
@@ -52,7 +52,7 @@ var (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
@@ -72,16 +72,16 @@ func New(config ...Config) fiber.Handler {
 	})
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(c *lightning.Ctx) error {
 		// Don't execute middleware if Next returns true
 		if cfg.Next != nil && cfg.Next(c) {
 			return c.Next()
 		}
 
-		if c.Method() != fiber.MethodGet {
-			return fiber.ErrMethodNotAllowed
+		if c.Method() != lightning.MethodGet {
+			return lightning.ErrMethodNotAllowed
 		}
-		if c.Get(fiber.HeaderAccept) == fiber.MIMEApplicationJSON || cfg.APIOnly {
+		if c.Get(lightning.HeaderAccept) == lightning.MIMEApplicationJSON || cfg.APIOnly {
 			mutex.Lock()
 			data.PID.CPU = monitPidCpu.Load().(float64)
 			data.PID.RAM = monitPidRam.Load().(uint64)
@@ -93,10 +93,10 @@ func New(config ...Config) fiber.Handler {
 			data.OS.LoadAvg = monitOsLoadAvg.Load().(float64)
 			data.OS.Conns = monitOsConns.Load().(int)
 			mutex.Unlock()
-			return c.Status(fiber.StatusOK).JSON(data)
+			return c.Status(lightning.StatusOK).JSON(data)
 		}
-		c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-		return c.Status(fiber.StatusOK).Send(index)
+		c.Response().Header.SetContentType(lightning.MIMETextHTMLCharsetUTF8)
+		return c.Status(lightning.StatusOK).Send(index)
 	}
 }
 

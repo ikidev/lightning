@@ -7,13 +7,17 @@
 // the fastest HTTP engine for Go. Designed to ease things up for fast
 // development with zero memory allocation and performance in mind.
 
-package fiber
+package lightning
 
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ikidev/lightning/internal/colorable"
+	"github.com/ikidev/lightning/internal/isatty"
+	"github.com/ikidev/lightning/utils"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -28,10 +32,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/gofiber/fiber/v2/internal/colorable"
-	"github.com/gofiber/fiber/v2/internal/go-json"
-	"github.com/gofiber/fiber/v2/internal/isatty"
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -39,7 +39,7 @@ import (
 const Version = "2.25.0"
 
 // Handler defines a function to serve HTTP requests.
-type Handler = func(*Ctx) error
+type Handler = func(request *Request, response *Response) error
 
 // Map is a shortcut for map[string]interface{}, useful for JSON returns
 type Map map[string]interface{}
@@ -80,7 +80,7 @@ type Storage interface {
 //   return c.Status(code).SendString(err.Error())
 //  }
 //  app := fiber.New(cfg)
-type ErrorHandler = func(*Ctx, error) error
+type ErrorHandler = func(*Request, *Response, error) error
 
 // Error represents an error that occurred while handling a request.
 type Error struct {
@@ -305,7 +305,7 @@ type Config struct {
 	// FEATURE: v2.3.x
 	// The router executes the same handler by default if StrictRouting or CaseSensitive is disabled.
 	// Enabling RedirectFixedPath will change this behaviour into a client redirect to the original route path.
-	// Using the status code 301 for GET requests and 308 for all other request methods.
+	// Using the StatusCode code 301 for GET requests and 308 for all other request methods.
 	//
 	// Default: false
 	// RedirectFixedPath bool
@@ -346,7 +346,7 @@ type Config struct {
 	//   1. c.Protocol() WON't get value from X-Forwarded-Proto, X-Forwarded-Protocol, X-Forwarded-Ssl or X-Url-Scheme header,
 	//    will return https in case when tls connection is handled by the app, of http otherwise
 	//   2. c.IP() WON'T get value from ProxyHeader header, will return RemoteIP() from fasthttp context
-	//   3. c.Hostname() WON'T get value from X-Forwarded-Host header, fasthttp.Request.URI().Host()
+	//   3. c.Hostname() WON'T get value from X-Forwarded-Host header, fasthttp.FHRequest.URI().Host()
 	//    will be used to get the hostname.
 	//
 	// Default: false
@@ -398,7 +398,7 @@ type Static struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *Ctx) bool
+	Next func(req *Request, res *Response) bool
 }
 
 // RouteMessage is some message need to be print when server starts
@@ -427,13 +427,13 @@ var latestRoute struct {
 var latestGroup Group
 
 // DefaultErrorHandler that process return errors from handlers
-var DefaultErrorHandler = func(c *Ctx, err error) error {
+var DefaultErrorHandler = func(req *Request, res *Response, err error) error {
 	code := StatusInternalServerError
 	if e, ok := err.(*Error); ok {
 		code = e.Code
 	}
-	c.Set(HeaderContentType, MIMETextPlainCharsetUTF8)
-	return c.Status(code).SendString(err.Error())
+	res.Header.Set(HeaderContentType, MIMETextPlainCharsetUTF8)
+	return res.Status(code).String(err.Error())
 }
 
 // New creates a new Fiber named instance.
@@ -946,7 +946,7 @@ func (app *App) Test(req *http.Request, msTimeout ...int) (resp *http.Response, 
 	// Read response
 	buffer := bufio.NewReader(&conn.w)
 
-	// Convert raw http response to *http.Response
+	// Convert raw http response to *http.FHResponse
 	return http.ReadResponse(buffer, req)
 }
 
@@ -1004,14 +1004,14 @@ func (app *App) init() *App {
 // sub fibers by their prefixes and if it finds a match, it uses that
 // error handler. Otherwise it uses the configured error handler for
 // the app, which if not set is the DefaultErrorHandler.
-func (app *App) ErrorHandler(ctx *Ctx, err error) error {
+func (app *App) ErrorHandler(req *Request, res *Response, err error) error {
 	var (
 		mountedErrHandler  ErrorHandler
 		mountedPrefixParts int
 	)
 
 	for prefix, errHandler := range app.errorHandlers {
-		if strings.HasPrefix(ctx.path, prefix) {
+		if strings.HasPrefix(req.Path(), prefix) {
 			parts := len(strings.Split(prefix, "/"))
 			if mountedPrefixParts <= parts {
 				mountedErrHandler = errHandler
@@ -1021,10 +1021,10 @@ func (app *App) ErrorHandler(ctx *Ctx, err error) error {
 	}
 
 	if mountedErrHandler != nil {
-		return mountedErrHandler(ctx, err)
+		return mountedErrHandler(req, res, err)
 	}
 
-	return app.config.ErrorHandler(ctx, err)
+	return app.config.ErrorHandler(req, res, err)
 }
 
 // serverErrorHandler is a wrapper around the application's error handler method
@@ -1046,7 +1046,8 @@ func (app *App) serverErrorHandler(fctx *fasthttp.RequestCtx, err error) {
 		err = ErrBadRequest
 	}
 
-	if catch := app.ErrorHandler(c, err); catch != nil {
+	req, res := buildRouteCallback(c)
+	if catch := app.ErrorHandler(req, res, err); catch != nil {
 		_ = c.SendStatus(StatusInternalServerError)
 	}
 
@@ -1268,8 +1269,8 @@ func (app *App) startupMessage(addr string, tls bool, pids string) {
 // printRoutesMessage print all routes with method, path, name and handlers
 // in a format of table, like this:
 // method | path | name      | handlers
-// GET    | /    | routeName | github.com/gofiber/fiber/v2.emptyHandler
-// HEAD   | /    |           | github.com/gofiber/fiber/v2.emptyHandler
+// GET    | /    | routeName | github.com/ikidev/lightning.emptyHandler
+// HEAD   | /    |           | github.com/ikidev/lightning.emptyHandler
 func (app *App) printRoutesMessage() {
 	// ignore child processes
 	if IsChild() {

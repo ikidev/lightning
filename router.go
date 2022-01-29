@@ -2,17 +2,17 @@
 // 🤖 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 import (
 	"fmt"
+	"github.com/ikidev/lightning/utils"
 	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -96,50 +96,50 @@ func (r *Route) match(detectionPath, path string, params *[maxParams]string) (ma
 	return false
 }
 
-func (app *App) next(c *Ctx) (match bool, err error) {
+func (app *App) next(req *Request, res *Response) (match bool, err error) {
 	// Get stack length
-	tree, ok := app.treeStack[c.methodINT][c.treePath]
+	tree, ok := app.treeStack[req.Ctx().methodINT][req.Ctx().treePath]
 	if !ok {
-		tree = app.treeStack[c.methodINT][""]
+		tree = app.treeStack[req.Ctx().methodINT][""]
 	}
 	lenr := len(tree) - 1
 
 	// Loop over the route stack starting from previous index
-	for c.indexRoute < lenr {
+	for req.Ctx().indexRoute < lenr {
 		// Increment route index
-		c.indexRoute++
+		req.Ctx().indexRoute++
 
 		// Get *Route
-		route := tree[c.indexRoute]
+		route := tree[req.Ctx().indexRoute]
 
 		// Check if it matches the request path
-		match = route.match(c.detectionPath, c.path, &c.values)
+		match = route.match(req.Ctx().detectionPath, req.Ctx().path, &req.Ctx().values)
 
 		// No match, next route
 		if !match {
 			continue
 		}
 		// Pass route reference and param values
-		c.route = route
+		req.Ctx().route = route
 
 		// Non use handler matched
-		if !c.matched && !route.use {
-			c.matched = true
+		if !req.Ctx().matched && !route.use {
+			req.Ctx().matched = true
 		}
 
 		// Execute first handler of route
-		c.indexHandler = 0
-		err = route.Handlers[0](c)
+		req.Ctx().indexHandler = 0
+		err = route.Handlers[0](req, res)
 		return match, err // Stop scanning the stack
 	}
 
 	// If c.Next() does not match, return 404
-	_ = c.SendStatus(StatusNotFound)
-	_ = c.SendString("Cannot " + c.method + " " + c.pathOriginal)
+	_ = res.Status(StatusNotFound)
+	_ = res.String("Cannot " + req.Method() + " " + req.ctx.pathOriginal)
 
 	// If no match, scan stack again if other methods match the request
 	// Moved from app.handler because middleware may break the route chain
-	if !c.matched && methodExist(c) {
+	if !res.ctx.matched && methodExist(req.ctx) {
 		err = ErrMethodNotAllowed
 	}
 	return
@@ -147,28 +147,28 @@ func (app *App) next(c *Ctx) (match bool, err error) {
 
 func (app *App) handler(rctx *fasthttp.RequestCtx) {
 	// Acquire Ctx with fasthttp request from pool
-	c := app.AcquireCtx(rctx)
+	req, res := app.AcquireReqRes(rctx)
 
 	// handle invalid http method directly
-	if c.methodINT == -1 {
-		_ = c.Status(StatusBadRequest).SendString("Invalid http method")
-		app.ReleaseCtx(c)
+	if req.ctx.methodINT == -1 {
+		_ = res.Status(StatusBadRequest).String("Invalid http method")
+		app.ReleaseCtx(req.ctx)
 		return
 	}
 
 	// Find match in stack
-	match, err := app.next(c)
+	match, err := app.next(req, res)
 	if err != nil {
-		if catch := c.app.ErrorHandler(c, err); catch != nil {
-			_ = c.SendStatus(StatusInternalServerError)
+		if catch := req.ctx.app.ErrorHandler(req, res, err); catch != nil {
+			_ = res.Status(StatusInternalServerError).Send()
 		}
 	}
 	// Generate ETag if enabled
 	if match && app.config.ETag {
-		setETag(c, false)
+		setETag(req.ctx, false)
 	}
 	// Release Ctx
-	app.ReleaseCtx(c)
+	app.ReleaseCtx(req.ctx)
 }
 
 func (app *App) addPrefixToRoute(prefix string, route *Route) *Route {
@@ -370,27 +370,27 @@ func (app *App) registerStatic(prefix, root string, config ...Static) Router {
 		}
 	}
 	fileHandler := fs.NewRequestHandler()
-	handler := func(c *Ctx) error {
+	handler := func(req *Request, res *Response) error {
 		// Don't execute middleware if Next returns true
-		if len(config) != 0 && config[0].Next != nil && config[0].Next(c) {
-			return c.Next()
+		if len(config) != 0 && config[0].Next != nil && config[0].Next(req, res) {
+			return req.Next()
 		}
 		// Serve file
-		fileHandler(c.fasthttp)
+		fileHandler(req.ctx.fasthttp)
 		// Return request if found and not forbidden
-		status := c.fasthttp.Response.StatusCode()
+		status := req.ctx.fasthttp.Response.StatusCode()
 		if status != StatusNotFound && status != StatusForbidden {
 			if len(cacheControlValue) > 0 {
-				c.fasthttp.Response.Header.Set(HeaderCacheControl, cacheControlValue)
+				req.ctx.fasthttp.Response.Header.Set(HeaderCacheControl, cacheControlValue)
 			}
 			return nil
 		}
 		// Reset response to default
-		c.fasthttp.SetContentType("") // Issue #420
-		c.fasthttp.Response.SetStatusCode(StatusOK)
-		c.fasthttp.Response.SetBodyString("")
+		req.ctx.fasthttp.SetContentType("") // Issue #420
+		req.ctx.fasthttp.Response.SetStatusCode(StatusOK)
+		req.ctx.fasthttp.Response.SetBodyString("")
 		// Next middleware
-		return c.Next()
+		return req.Next()
 	}
 
 	// Create route metadata without pointer

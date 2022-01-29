@@ -3,7 +3,7 @@ package csrf
 import (
 	"errors"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 var (
@@ -15,9 +15,9 @@ var (
 )
 
 // csrfFromParam returns a function that extracts token from the url param string.
-func csrfFromParam(param string) func(c *fiber.Ctx) (string, error) {
-	return func(c *fiber.Ctx) (string, error) {
-		token := c.Params(param)
+func csrfFromParam(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
+	return func(req *lightning.Request, res *lightning.Response) (string, error) {
+		token := req.UrlParam(param)
 		if token == "" {
 			return "", errMissingParam
 		}
@@ -26,9 +26,9 @@ func csrfFromParam(param string) func(c *fiber.Ctx) (string, error) {
 }
 
 // csrfFromForm returns a function that extracts a token from a multipart-form.
-func csrfFromForm(param string) func(c *fiber.Ctx) (string, error) {
-	return func(c *fiber.Ctx) (string, error) {
-		token := c.FormValue(param)
+func csrfFromForm(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
+	return func(req *lightning.Request, res *lightning.Response) (string, error) {
+		token := req.FormValue(param)
 		if token == "" {
 			return "", errMissingForm
 		}
@@ -37,9 +37,9 @@ func csrfFromForm(param string) func(c *fiber.Ctx) (string, error) {
 }
 
 // csrfFromCookie returns a function that extracts token from the cookie header.
-func csrfFromCookie(param string) func(c *fiber.Ctx) (string, error) {
-	return func(c *fiber.Ctx) (string, error) {
-		token := c.Cookies(param)
+func csrfFromCookie(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
+	return func(req *lightning.Request, res *lightning.Response) (string, error) {
+		token := req.GetCookie(param)
 		if token == "" {
 			return "", errMissingCookie
 		}
@@ -48,9 +48,9 @@ func csrfFromCookie(param string) func(c *fiber.Ctx) (string, error) {
 }
 
 // csrfFromHeader returns a function that extracts token from the request header.
-func csrfFromHeader(param string) func(c *fiber.Ctx) (string, error) {
-	return func(c *fiber.Ctx) (string, error) {
-		token := c.Get(param)
+func csrfFromHeader(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
+	return func(req *lightning.Request, res *lightning.Response) (string, error) {
+		token := req.Header.Get(param)
 		if token == "" {
 			return "", errMissingHeader
 		}
@@ -59,9 +59,9 @@ func csrfFromHeader(param string) func(c *fiber.Ctx) (string, error) {
 }
 
 // csrfFromQuery returns a function that extracts token from the query string.
-func csrfFromQuery(param string) func(c *fiber.Ctx) (string, error) {
-	return func(c *fiber.Ctx) (string, error) {
-		token := c.Query(param)
+func csrfFromQuery(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
+	return func(req *lightning.Request, res *lightning.Response) (string, error) {
+		token := req.Query(param)
 		if token == "" {
 			return "", errMissingQuery
 		}

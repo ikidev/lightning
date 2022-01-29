@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
 )
 
 var ClocksPerSec = float64(100)

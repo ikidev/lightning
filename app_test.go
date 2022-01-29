@@ -2,13 +2,14 @@
 // 🤖 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 import (
 	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/ikidev/lightning/utils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,12 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
-var testEmptyHandler = func(c *Ctx) error {
+var testEmptyHandler = func(req *Request, res *Response) error {
 	return nil
 }
 
@@ -46,8 +46,8 @@ func testStatus200(t *testing.T, app *App, url string, method string) {
 func Test_App_MethodNotAllowed(t *testing.T) {
 	app := New()
 
-	app.Use(func(c *Ctx) error {
-		return c.Next()
+	app.Use(func(req *Request, res *Response) error {
+		return req.Next()
 	})
 
 	app.Post("/", testEmptyHandler)
@@ -95,8 +95,8 @@ func Test_App_MethodNotAllowed(t *testing.T) {
 func Test_App_Custom_Middleware_404_Should_Not_SetMethodNotAllowed(t *testing.T) {
 	app := New()
 
-	app.Use(func(c *Ctx) error {
-		return c.SendStatus(404)
+	app.Use(func(req *Request, res *Response) error {
+		return res.Status(404).Send()
 	})
 
 	app.Post("/", testEmptyHandler)
@@ -105,8 +105,8 @@ func Test_App_Custom_Middleware_404_Should_Not_SetMethodNotAllowed(t *testing.T)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 404, resp.StatusCode)
 
-	g := app.Group("/with-next", func(c *Ctx) error {
-		return c.Status(404).Next()
+	g := app.Group("/with-next", func(req *Request, res *Response) error {
+		return res.ctx.Status(404).Next()
 	})
 
 	g.Post("/", testEmptyHandler)
@@ -122,7 +122,7 @@ func Test_App_ServerErrorHandler_SmallReadBuffer(t *testing.T) {
 	)
 	app := New()
 
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		panic(errors.New("should never called"))
 	})
 
@@ -148,7 +148,7 @@ func Test_App_Errors(t *testing.T) {
 		BodyLimit: 4,
 	})
 
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		return errors.New("hi, i'm an error")
 	})
 
@@ -168,12 +168,12 @@ func Test_App_Errors(t *testing.T) {
 
 func Test_App_ErrorHandler_Custom(t *testing.T) {
 	app := New(Config{
-		ErrorHandler: func(c *Ctx, err error) error {
-			return c.Status(200).SendString("hi, i'm an custom error")
+		ErrorHandler: func(req *Request, res *Response, err error) error {
+			return res.Status(200).String("hi, i'm an custom error")
 		},
 	})
 
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		return errors.New("hi, i'm an error")
 	})
 
@@ -188,21 +188,21 @@ func Test_App_ErrorHandler_Custom(t *testing.T) {
 
 func Test_App_ErrorHandler_HandlerStack(t *testing.T) {
 	app := New(Config{
-		ErrorHandler: func(c *Ctx, err error) error {
+		ErrorHandler: func(req *Request, res *Response, err error) error {
 			utils.AssertEqual(t, "1: USE error", err.Error())
-			return DefaultErrorHandler(c, err)
+			return DefaultErrorHandler(req, res, err)
 		},
 	})
-	app.Use("/", func(c *Ctx) error {
-		err := c.Next() // call next USE
+	app.Use("/", func(req *Request, res *Response) error {
+		err := req.Next() // call next USE
 		utils.AssertEqual(t, "2: USE error", err.Error())
 		return errors.New("1: USE error")
-	}, func(c *Ctx) error {
-		err := c.Next() // call [0] GET
+	}, func(req *Request, res *Response) error {
+		err := req.Next() // call [0] GET
 		utils.AssertEqual(t, "0: GET error", err.Error())
 		return errors.New("2: USE error")
 	})
-	app.Get("/", func(c *Ctx) error {
+	app.Get("/", func(req *Request, res *Response) error {
 		return errors.New("0: GET error")
 	})
 
@@ -217,17 +217,17 @@ func Test_App_ErrorHandler_HandlerStack(t *testing.T) {
 
 func Test_App_ErrorHandler_RouteStack(t *testing.T) {
 	app := New(Config{
-		ErrorHandler: func(c *Ctx, err error) error {
+		ErrorHandler: func(req *Request, res *Response, err error) error {
 			utils.AssertEqual(t, "1: USE error", err.Error())
-			return DefaultErrorHandler(c, err)
+			return DefaultErrorHandler(req, res, err)
 		},
 	})
-	app.Use("/", func(c *Ctx) error {
-		err := c.Next()
+	app.Use("/", func(req *Request, res *Response) error {
+		err := req.Next()
 		utils.AssertEqual(t, "0: GET error", err.Error())
 		return errors.New("1: USE error") // [2] call ErrorHandler
 	})
-	app.Get("/test", func(c *Ctx) error {
+	app.Get("/test", func(req *Request, res *Response) error {
 		return errors.New("0: GET error") // [1] return to USE
 	})
 
@@ -242,12 +242,12 @@ func Test_App_ErrorHandler_RouteStack(t *testing.T) {
 
 func Test_App_ErrorHandler_GroupMount(t *testing.T) {
 	micro := New(Config{
-		ErrorHandler: func(c *Ctx, err error) error {
+		ErrorHandler: func(req *Request, res *Response, err error) error {
 			utils.AssertEqual(t, "0: GET error", err.Error())
-			return c.Status(500).SendString("1: custom error")
+			return res.Status(500).String("1: custom error")
 		},
 	})
-	micro.Get("/doe", func(c *Ctx) error {
+	micro.Get("/doe", func(req *Request, res *Response) error {
 		return errors.New("0: GET error")
 	})
 
@@ -267,17 +267,17 @@ func Test_App_ErrorHandler_GroupMount(t *testing.T) {
 func Test_App_Nested_Params(t *testing.T) {
 	app := New()
 
-	app.Get("/test", func(c *Ctx) error {
-		return c.Status(400).Send([]byte("Should move on"))
+	app.Get("/test", func(req *Request, res *Response) error {
+		return res.Status(400).Bytes([]byte("Should move on"))
 	})
-	app.Get("/test/:param", func(c *Ctx) error {
-		return c.Status(400).Send([]byte("Should move on"))
+	app.Get("/test/:param", func(req *Request, res *Response) error {
+		return res.Status(400).Bytes([]byte("Should move on"))
 	})
-	app.Get("/test/:param/test", func(c *Ctx) error {
-		return c.Status(400).Send([]byte("Should move on"))
+	app.Get("/test/:param/test", func(req *Request, res *Response) error {
+		return res.Status(400).Bytes([]byte("Should move on"))
 	})
-	app.Get("/test/:param/test/:param2", func(c *Ctx) error {
-		return c.Status(200).Send([]byte("Good job"))
+	app.Get("/test/:param/test/:param2", func(req *Request, res *Response) error {
+		return res.Bytes([]byte("Good job"))
 	})
 
 	req := httptest.NewRequest(MethodGet, "/test/john/test/doe", nil)
@@ -290,8 +290,8 @@ func Test_App_Nested_Params(t *testing.T) {
 // go test -run Test_App_Mount
 func Test_App_Mount(t *testing.T) {
 	micro := New()
-	micro.Get("/doe", func(c *Ctx) error {
-		return c.SendStatus(StatusOK)
+	micro.Get("/doe", func(req *Request, res *Response) error {
+		return res.Status(StatusOK).Send()
 	})
 
 	app := New()
@@ -306,19 +306,19 @@ func Test_App_Mount(t *testing.T) {
 func Test_App_Use_Params(t *testing.T) {
 	app := New()
 
-	app.Use("/prefix/:param", func(c *Ctx) error {
-		utils.AssertEqual(t, "john", c.Params("param"))
+	app.Use("/prefix/:param", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "john", req.UrlParam("param"))
 		return nil
 	})
 
-	app.Use("/foo/:bar?", func(c *Ctx) error {
-		utils.AssertEqual(t, "foobar", c.Params("bar", "foobar"))
+	app.Use("/foo/:bar?", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "foobar", req.UrlParam("bar", "foobar"))
 		return nil
 	})
 
-	app.Use("/:param/*", func(c *Ctx) error {
-		utils.AssertEqual(t, "john", c.Params("param"))
-		utils.AssertEqual(t, "doe", c.Params("*"))
+	app.Use("/:param/*", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "john", req.UrlParam("param"))
+		utils.AssertEqual(t, "doe", req.UrlParam("*"))
 		return nil
 	})
 
@@ -348,13 +348,13 @@ func Test_App_Use_Params(t *testing.T) {
 func Test_App_Use_UnescapedPath(t *testing.T) {
 	app := New(Config{UnescapePath: true, CaseSensitive: true})
 
-	app.Use("/cRéeR/:param", func(c *Ctx) error {
-		utils.AssertEqual(t, "/cRéeR/اختبار", c.Path())
-		return c.SendString(c.Params("param"))
+	app.Use("/cRéeR/:param", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/cRéeR/اختبار", req.Path())
+		return res.String(req.UrlParam("param"))
 	})
 
-	app.Use("/abc", func(c *Ctx) error {
-		utils.AssertEqual(t, "/AbC", c.Path())
+	app.Use("/abc", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "/AbC", req.Path())
 		return nil
 	})
 
@@ -376,8 +376,8 @@ func Test_App_Use_UnescapedPath(t *testing.T) {
 func Test_App_Use_CaseSensitive(t *testing.T) {
 	app := New(Config{CaseSensitive: true})
 
-	app.Use("/abc", func(c *Ctx) error {
-		return c.SendString(c.Path())
+	app.Use("/abc", func(req *Request, res *Response) error {
+		return res.String(req.Path())
 	})
 
 	// wrong letters in the requested route -> 404
@@ -419,8 +419,8 @@ func Test_App_GETOnly(t *testing.T) {
 		GETOnly: true,
 	})
 
-	app.Post("/", func(c *Ctx) error {
-		return c.SendString("Hello 👋!")
+	app.Post("/", func(req *Request, res *Response) error {
+		return res.String("Hello 👋!")
 	})
 
 	req := httptest.NewRequest(MethodPost, "/", nil)
@@ -433,12 +433,12 @@ func Test_App_Use_Params_Group(t *testing.T) {
 	app := New()
 
 	group := app.Group("/prefix/:param/*")
-	group.Use("/", func(c *Ctx) error {
-		return c.Next()
+	group.Use("/", func(req *Request, res *Response) error {
+		return req.Next()
 	})
-	group.Get("/test", func(c *Ctx) error {
-		utils.AssertEqual(t, "john", c.Params("param"))
-		utils.AssertEqual(t, "doe", c.Params("*"))
+	group.Get("/test", func(req *Request, res *Response) error {
+		utils.AssertEqual(t, "john", req.UrlParam("param"))
+		utils.AssertEqual(t, "doe", req.UrlParam("*"))
 		return nil
 	})
 
@@ -448,12 +448,12 @@ func Test_App_Use_Params_Group(t *testing.T) {
 }
 
 func Test_App_Chaining(t *testing.T) {
-	n := func(c *Ctx) error {
-		return c.Next()
+	n := func(req *Request, res *Response) error {
+		return req.Next()
 	}
 	app := New()
-	app.Use("/john", n, n, n, n, func(c *Ctx) error {
-		return c.SendStatus(202)
+	app.Use("/john", n, n, n, n, func(req *Request, res *Response) error {
+		return res.Status(202).Send()
 	})
 	// check handler count for registered HEAD route
 	utils.AssertEqual(t, 5, len(app.stack[methodInt(MethodHead)][0].Handlers), "app.Test(req)")
@@ -464,8 +464,8 @@ func Test_App_Chaining(t *testing.T) {
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 202, resp.StatusCode, "Status code")
 
-	app.Get("/test", n, n, n, n, func(c *Ctx) error {
-		return c.SendStatus(203)
+	app.Get("/test", n, n, n, n, func(req *Request, res *Response) error {
+		return res.Status(203).Send()
 	})
 
 	req = httptest.NewRequest(MethodGet, "/test", nil)
@@ -478,18 +478,18 @@ func Test_App_Chaining(t *testing.T) {
 func Test_App_Order(t *testing.T) {
 	app := New()
 
-	app.Get("/test", func(c *Ctx) error {
-		c.Write([]byte("1"))
-		return c.Next()
+	app.Get("/test", func(req *Request, res *Response) error {
+		res.Append([]byte("1"))
+		return req.Next()
 	})
 
-	app.All("/test", func(c *Ctx) error {
-		c.Write([]byte("2"))
-		return c.Next()
+	app.All("/test", func(req *Request, res *Response) error {
+		res.Append([]byte("2"))
+		return req.Next()
 	})
 
-	app.Use(func(c *Ctx) error {
-		c.Write([]byte("3"))
+	app.Use(func(req *Request, res *Response) error {
+		res.Append([]byte("3"))
 		return nil
 	})
 
@@ -545,8 +545,8 @@ func Test_App_Methods(t *testing.T) {
 
 func Test_App_Route_Naming(t *testing.T) {
 	app := New()
-	handler := func(c *Ctx) error {
-		return c.SendStatus(StatusOK)
+	handler := func(req *Request, res *Response) error {
+		return res.Status(StatusOK).Send()
 	}
 	app.Get("/john", handler).Name("john")
 	app.Delete("/doe", handler)
@@ -678,9 +678,9 @@ func Test_App_Static_MaxAge(t *testing.T) {
 func Test_App_Static_Group(t *testing.T) {
 	app := New()
 
-	grp := app.Group("/v1", func(c *Ctx) error {
-		c.Set("Test-Header", "123")
-		return c.Next()
+	grp := app.Group("/v1", func(req *Request, res *Response) error {
+		req.Header.Set("Test-Header", "123")
+		return req.Next()
 	})
 
 	grp.Static("/v2", "./.github/index.html")
@@ -825,14 +825,14 @@ func Test_App_Static_Trailing_Slash(t *testing.T) {
 func Test_App_Static_Next(t *testing.T) {
 	app := New()
 	app.Static("/", ".github", Static{
-		Next: func(c *Ctx) bool {
+		Next: func(req *Request, res *Response) bool {
 			// If value of the header is any other from "skip"
 			// c.Next() will be invoked
-			return c.Get("X-Custom-Header") == "skip"
+			return req.Header.Get("X-Custom-Header") == "skip"
 		},
 	})
-	app.Get("/", func(c *Ctx) error {
-		return c.SendString("You've skipped app.Static")
+	app.Get("/", func(req *Request, res *Response) error {
+		return res.String("You've skipped app.Static")
 	})
 
 	t.Run("app.Static is skipped: invoking Get handler", func(t *testing.T) {
@@ -869,15 +869,14 @@ func Test_App_Mixed_Routes_WithSameLen(t *testing.T) {
 	app := New()
 
 	// middleware
-	app.Use(func(c *Ctx) error {
-		c.Set("TestHeader", "TestValue")
-		return c.Next()
+	app.Use(func(req *Request, res *Response) error {
+		req.Header.Set("TestHeader", "TestValue")
+		return req.Next()
 	})
 	// routes with the same length
 	app.Static("/tesbar", "./.github")
-	app.Get("/foobar", func(c *Ctx) error {
-		c.Type("html")
-		return c.Send([]byte("FOO_BAR"))
+	app.Get("/foobar", func(req *Request, res *Response) error {
+		return res.Type("html").Bytes([]byte("FOO_BAR"))
 	})
 
 	// match get route
@@ -904,8 +903,8 @@ func Test_App_Mixed_Routes_WithSameLen(t *testing.T) {
 
 	body, err = ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, true, strings.Contains(string(body), "Hello, World!"), "Response: "+string(body))
-	utils.AssertEqual(t, true, strings.HasPrefix(string(body), "<!DOCTYPE html>"), "Response: "+string(body))
+	utils.AssertEqual(t, true, strings.Contains(string(body), "Hello, World!"), "FHResponse: "+string(body))
+	utils.AssertEqual(t, true, strings.HasPrefix(string(body), "<!DOCTYPE html>"), "FHResponse: "+string(body))
 }
 
 func Test_App_Group_Invalid(t *testing.T) {
@@ -920,8 +919,8 @@ func Test_App_Group_Invalid(t *testing.T) {
 // go test -run Test_App_Group_Mount
 func Test_App_Group_Mount(t *testing.T) {
 	micro := New()
-	micro.Get("/doe", func(c *Ctx) error {
-		return c.SendStatus(StatusOK)
+	micro.Get("/doe", func(req *Request, res *Response) error {
+		return res.Status(StatusOK).Send()
 	})
 
 	app := New()
@@ -1045,18 +1044,18 @@ func Test_App_Route(t *testing.T) {
 
 func Test_App_Deep_Group(t *testing.T) {
 	runThroughCount := 0
-	dummyHandler := func(c *Ctx) error {
+	dummyHandler := func(req *Request, res *Response) error {
 		runThroughCount++
-		return c.Next()
+		return req.Next()
 	}
 
 	app := New()
 	gAPI := app.Group("/api", dummyHandler)
 	gV1 := gAPI.Group("/v1", dummyHandler)
 	gUser := gV1.Group("/user", dummyHandler)
-	gUser.Get("/authenticate", func(c *Ctx) error {
+	gUser.Get("/authenticate", func(req *Request, res *Response) error {
 		runThroughCount++
-		return c.SendStatus(200)
+		return res.Status(StatusOK).Send()
 	})
 	testStatus200(t, app, "/api/v1/user/authenticate", MethodGet)
 	utils.AssertEqual(t, 4, runThroughCount, "Loop count")
@@ -1067,10 +1066,10 @@ func Test_App_Next_Method(t *testing.T) {
 	app := New()
 	app.config.DisableStartupMessage = true
 
-	app.Use(func(c *Ctx) error {
-		utils.AssertEqual(t, MethodGet, c.Method())
-		c.Next()
-		utils.AssertEqual(t, MethodGet, c.Method())
+	app.Use(func(req *Request, res *Response) error {
+		utils.AssertEqual(t, MethodGet, req.Method())
+		req.Next()
+		utils.AssertEqual(t, MethodGet, req.Method())
 		return nil
 	})
 
@@ -1235,7 +1234,7 @@ func Test_Test_Timeout(t *testing.T) {
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
 
-	app.Get("timeout", func(c *Ctx) error {
+	app.Get("timeout", func(req *Request, res *Response) error {
 		time.Sleep(55 * time.Millisecond)
 		return nil
 	})
@@ -1324,13 +1323,13 @@ func Test_App_HandlersCount(t *testing.T) {
 func Test_App_ReadTimeout(t *testing.T) {
 	app := New(Config{
 		ReadTimeout:           time.Nanosecond,
-		IdleTimeout:           time.Minute,
+		IdleTimeout:           time.Second * 10,
 		DisableStartupMessage: true,
 		DisableKeepalive:      true,
 	})
 
-	app.Get("/read-timeout", func(c *Ctx) error {
-		return c.SendString("I should not be sent")
+	app.Get("/read-timeout", func(req *Request, res *Response) error {
+		return res.String("I should not be sent")
 	})
 
 	go func() {
@@ -1362,8 +1361,8 @@ func Test_App_BadRequest(t *testing.T) {
 		DisableStartupMessage: true,
 	})
 
-	app.Get("/bad-request", func(c *Ctx) error {
-		return c.SendString("I should not be sent")
+	app.Get("/bad-request", func(req *Request, res *Response) error {
+		return res.String("I should not be sent")
 	})
 
 	go func() {
@@ -1395,8 +1394,8 @@ func Test_App_SmallReadBuffer(t *testing.T) {
 		DisableStartupMessage: true,
 	})
 
-	app.Get("/small-read-buffer", func(c *Ctx) error {
-		return c.SendString("I should not be sent")
+	app.Get("/small-read-buffer", func(req *Request, res *Response) error {
+		return res.String("I should not be sent")
 	})
 
 	go func() {
@@ -1473,7 +1472,7 @@ func Test_App_Server(t *testing.T) {
 
 func Test_App_Error_In_Fasthttp_Server(t *testing.T) {
 	app := New()
-	app.config.ErrorHandler = func(ctx *Ctx, err error) error {
+	app.config.ErrorHandler = func(req *Request, res *Response, err error) error {
 		return errors.New("fake error")
 	}
 	app.server.GetOnly = true
@@ -1499,9 +1498,9 @@ func Test_App_New_Test_Parallel(t *testing.T) {
 
 func Test_App_ReadBodyStream(t *testing.T) {
 	app := New(Config{StreamRequestBody: true})
-	app.Post("/", func(c *Ctx) error {
+	app.Post("/", func(req *Request, res *Response) error {
 		// Calling c.Body() automatically reads the entire stream.
-		return c.SendString(fmt.Sprintf("%v %s", c.Request().IsBodyStream(), c.Body()))
+		return res.String(fmt.Sprintf("%v %s", req.IsBodyStream(), req.Body()))
 	})
 	testString := "this is a test"
 	resp, err := app.Test(httptest.NewRequest("POST", "/", bytes.NewBufferString(testString)))
@@ -1516,8 +1515,8 @@ func Test_App_DisablePreParseMultipartForm(t *testing.T) {
 	testString := "this is a test"
 
 	app := New(Config{DisablePreParseMultipartForm: true, StreamRequestBody: true})
-	app.Post("/", func(c *Ctx) error {
-		req := c.Request()
+	app.Post("/", func(req *Request, res *Response) error {
+
 		mpf, err := req.MultipartForm()
 		if err != nil {
 			return err
@@ -1537,7 +1536,7 @@ func Test_App_DisablePreParseMultipartForm(t *testing.T) {
 		if n != len(testString) {
 			return fmt.Errorf("bad read length")
 		}
-		return c.Send(buffer)
+		return res.Bytes(buffer)
 	})
 	b := &bytes.Buffer{}
 	w := multipart.NewWriter(b)
@@ -1562,11 +1561,11 @@ func Test_App_UseMountedErrorHandler(t *testing.T) {
 	app := New()
 
 	fiber := New(Config{
-		ErrorHandler: func(ctx *Ctx, err error) error {
-			return ctx.Status(200).SendString("hi, i'm a custom error")
+		ErrorHandler: func(req *Request, res *Response, err error) error {
+			return res.Status(200).String("hi, i'm a custom error")
 		},
 	})
-	fiber.Get("/", func(c *Ctx) error {
+	fiber.Get("/", func(req *Request, res *Response) error {
 		return errors.New("something happened")
 	})
 
@@ -1578,40 +1577,40 @@ func Test_App_UseMountedErrorHandler(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err, "iotuil.ReadAll()")
-	utils.AssertEqual(t, "hi, i'm a custom error", string(b), "Response body")
+	utils.AssertEqual(t, "hi, i'm a custom error", string(b), "FHResponse body")
 }
 
 func Test_App_UseMountedErrorHandlerForBestPrefixMatch(t *testing.T) {
 	app := New()
 
-	tsf := func(ctx *Ctx, err error) error {
-		return ctx.Status(200).SendString("hi, i'm a custom sub sub fiber error")
+	tsf := func(req *Request, res *Response, err error) error {
+		return res.Status(200).String("hi, i'm a custom sub sub fiber error")
 	}
 	tripleSubFiber := New(Config{
 		ErrorHandler: tsf,
 	})
-	tripleSubFiber.Get("/", func(c *Ctx) error {
+	tripleSubFiber.Get("/", func(req *Request, res *Response) error {
 		return errors.New("something happened")
 	})
 
-	sf := func(ctx *Ctx, err error) error {
-		return ctx.Status(200).SendString("hi, i'm a custom sub fiber error")
+	sf := func(req *Request, res *Response, err error) error {
+		return res.Status(200).String("hi, i'm a custom sub fiber error")
 	}
 	subfiber := New(Config{
 		ErrorHandler: sf,
 	})
-	subfiber.Get("/", func(c *Ctx) error {
+	subfiber.Get("/", func(req *Request, res *Response) error {
 		return errors.New("something happened")
 	})
 	subfiber.Mount("/third", tripleSubFiber)
 
-	f := func(ctx *Ctx, err error) error {
-		return ctx.Status(200).SendString("hi, i'm a custom error")
+	f := func(req *Request, res *Response, err error) error {
+		return res.Status(200).String("hi, i'm a custom error")
 	}
 	fiber := New(Config{
 		ErrorHandler: f,
 	})
-	fiber.Get("/", func(c *Ctx) error {
+	fiber.Get("/", func(req *Request, res *Response) error {
 		return errors.New("something happened")
 	})
 	fiber.Mount("/sub", subfiber)
@@ -1624,7 +1623,7 @@ func Test_App_UseMountedErrorHandlerForBestPrefixMatch(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err, "iotuil.ReadAll()")
-	utils.AssertEqual(t, "hi, i'm a custom sub fiber error", string(b), "Response body")
+	utils.AssertEqual(t, "hi, i'm a custom sub fiber error", string(b), "FHResponse body")
 
 	resp2, err := app.Test(httptest.NewRequest(MethodGet, "/api/sub/third", nil))
 	utils.AssertEqual(t, nil, err, "/api/sub/third req")
@@ -1632,10 +1631,10 @@ func Test_App_UseMountedErrorHandlerForBestPrefixMatch(t *testing.T) {
 
 	b, err = ioutil.ReadAll(resp2.Body)
 	utils.AssertEqual(t, nil, err, "iotuil.ReadAll()")
-	utils.AssertEqual(t, "hi, i'm a custom sub sub fiber error", string(b), "Third fiber Response body")
+	utils.AssertEqual(t, "hi, i'm a custom sub sub fiber error", string(b), "Third fiber FHResponse body")
 }
 
-func emptyHandler(c *Ctx) error {
+func emptyHandler(req *Request, res *Response) error {
 	return nil
 }
 func Test_App_print_Route(t *testing.T) {

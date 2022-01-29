@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
 )
 
 // Return a list of network connections opened.

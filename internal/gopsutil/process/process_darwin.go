@@ -15,9 +15,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/cpu"
-	"github.com/gofiber/fiber/v2/internal/gopsutil/net"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/gopsutil/cpu"
+	"github.com/ikidev/lightning/internal/gopsutil/net"
 	"golang.org/x/sys/unix"
 )
 

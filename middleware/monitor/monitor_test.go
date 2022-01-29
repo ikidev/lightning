@@ -6,19 +6,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 func Test_Monitor_405(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use("/", New())
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodPost, "/", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 405, resp.StatusCode)
 }
@@ -26,14 +26,14 @@ func Test_Monitor_405(t *testing.T) {
 func Test_Monitor_Html(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Get("/", New())
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
-	utils.AssertEqual(t, fiber.MIMETextHTMLCharsetUTF8, resp.Header.Get(fiber.HeaderContentType))
+	utils.AssertEqual(t, lightning.MIMETextHTMLCharsetUTF8, resp.Header.Get(lightning.HeaderContentType))
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -44,16 +44,16 @@ func Test_Monitor_Html(t *testing.T) {
 func Test_Monitor_JSON(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Get("/", New())
 
-	req := httptest.NewRequest(fiber.MethodGet, "/", nil)
-	req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+	req := httptest.NewRequest(lightning.MethodGet, "/", nil)
+	req.Header.Set(lightning.HeaderAccept, lightning.MIMEApplicationJSON)
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
-	utils.AssertEqual(t, fiber.MIMEApplicationJSON, resp.Header.Get(fiber.HeaderContentType))
+	utils.AssertEqual(t, lightning.MIMEApplicationJSON, resp.Header.Get(lightning.HeaderContentType))
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -63,7 +63,7 @@ func Test_Monitor_JSON(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Monitor -benchmem -count=4
 func Benchmark_Monitor(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Get("/", New())
 
@@ -72,7 +72,7 @@ func Benchmark_Monitor(b *testing.B) {
 	fctx := &fasthttp.RequestCtx{}
 	fctx.Request.Header.SetMethod("GET")
 	fctx.Request.SetRequestURI("/")
-	fctx.Request.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+	fctx.Request.Header.Set(lightning.HeaderAccept, lightning.MIMEApplicationJSON)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -85,23 +85,23 @@ func Benchmark_Monitor(b *testing.B) {
 
 	utils.AssertEqual(b, 200, fctx.Response.Header.StatusCode())
 	utils.AssertEqual(b,
-		fiber.MIMEApplicationJSON,
-		string(fctx.Response.Header.Peek(fiber.HeaderContentType)))
+		lightning.MIMEApplicationJSON,
+		string(fctx.Response.Header.Peek(lightning.HeaderContentType)))
 }
 
 // go test -run Test_Monitor_Next
 func Test_Monitor_Next(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use("/", New(Config{
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Ctx) bool {
 			return true
 		},
 	}))
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodPost, "/", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 404, resp.StatusCode)
 }
@@ -110,18 +110,18 @@ func Test_Monitor_Next(t *testing.T) {
 func Test_Monitor_APIOnly(t *testing.T) {
 	//t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Get("/", New(Config{
 		APIOnly: true,
 	}))
 
-	req := httptest.NewRequest(fiber.MethodGet, "/", nil)
-	req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+	req := httptest.NewRequest(lightning.MethodGet, "/", nil)
+	req.Header.Set(lightning.HeaderAccept, lightning.MIMEApplicationJSON)
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
-	utils.AssertEqual(t, fiber.MIMEApplicationJSON, resp.Header.Get(fiber.HeaderContentType))
+	utils.AssertEqual(t, lightning.MIMEApplicationJSON, resp.Header.Get(lightning.HeaderContentType))
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)

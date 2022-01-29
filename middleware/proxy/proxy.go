@@ -6,19 +6,19 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 // New is deprecated
-func New(config Config) fiber.Handler {
+func New(config Config) lightning.Handler {
 	fmt.Println("proxy.New is deprecated, please use proxy.Balancer instead")
 	return Balancer(config)
 }
 
 // Balancer creates a load balancer among multiple upstream servers
-func Balancer(config Config) fiber.Handler {
+func Balancer(config Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config)
 
@@ -54,7 +54,7 @@ func Balancer(config Config) fiber.Handler {
 	}
 
 	// Return new handler
-	return func(c *fiber.Ctx) (err error) {
+	return func(c *lightning.Ctx) (err error) {
 		// Don't execute middleware if Next returns true
 		if cfg.Next != nil && cfg.Next(c) {
 			return c.Next()
@@ -65,7 +65,7 @@ func Balancer(config Config) fiber.Handler {
 		res := c.Response()
 
 		// Don't proxy "Connection" header
-		req.Header.Del(fiber.HeaderConnection)
+		req.Header.Del(lightning.HeaderConnection)
 
 		// Modify request
 		if cfg.ModifyRequest != nil {
@@ -82,7 +82,7 @@ func Balancer(config Config) fiber.Handler {
 		}
 
 		// Don't proxy "Connection" header
-		res.Header.Del(fiber.HeaderConnection)
+		res.Header.Del(lightning.HeaderConnection)
 
 		// Modify response
 		if cfg.ModifyResponse != nil {
@@ -109,22 +109,22 @@ func WithTlsConfig(tlsConfig *tls.Config) {
 
 // Forward performs the given http request and fills the given http response.
 // This method will return an fiber.Handler
-func Forward(addr string) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func Forward(addr string) lightning.Handler {
+	return func(c *lightning.Ctx) error {
 		return Do(c, addr)
 	}
 }
 
 // Do performs the given http request and fills the given http response.
 // This method can be used within a fiber.Handler
-func Do(c *fiber.Ctx, addr string) error {
+func Do(c *lightning.Ctx, addr string) error {
 	req := c.Request()
 	res := c.Response()
 	req.SetRequestURI(addr)
-	req.Header.Del(fiber.HeaderConnection)
+	req.Header.Del(lightning.HeaderConnection)
 	if err := client.Do(req, res); err != nil {
 		return err
 	}
-	res.Header.Del(fiber.HeaderConnection)
+	res.Header.Del(lightning.HeaderConnection)
 	return nil
 }

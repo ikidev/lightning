@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/storage/memory"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/storage/memory"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -18,7 +18,7 @@ func Test_Session(t *testing.T) {
 	store := New()
 
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 
 	// fiber context
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -101,7 +101,7 @@ func Test_Session_Types(t *testing.T) {
 	store := New()
 
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 
 	// fiber context
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -206,7 +206,7 @@ func Test_Session_Store_Reset(t *testing.T) {
 	// session store
 	store := New()
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 	// fiber context
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -237,7 +237,7 @@ func Test_Session_Save(t *testing.T) {
 		// session store
 		store := New()
 		// fiber instance
-		app := fiber.New()
+		app := lightning.New()
 		// fiber context
 		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 		defer app.ReleaseCtx(ctx)
@@ -257,7 +257,7 @@ func Test_Session_Save(t *testing.T) {
 			KeyLookup: "header:session_id",
 		})
 		// fiber instance
-		app := fiber.New()
+		app := lightning.New()
 		// fiber context
 		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 		defer app.ReleaseCtx(ctx)
@@ -281,7 +281,7 @@ func Test_Session_Save_Expiration(t *testing.T) {
 		// session store
 		store := New()
 		// fiber instance
-		app := fiber.New()
+		app := lightning.New()
 		// fiber context
 		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 		defer app.ReleaseCtx(ctx)
@@ -318,7 +318,7 @@ func Test_Session_Reset(t *testing.T) {
 		// session store
 		store := New()
 		// fiber instance
-		app := fiber.New()
+		app := lightning.New()
 		// fiber context
 		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 		defer app.ReleaseCtx(ctx)
@@ -337,7 +337,7 @@ func Test_Session_Reset(t *testing.T) {
 			KeyLookup: "header:session_id",
 		})
 		// fiber instance
-		app := fiber.New()
+		app := lightning.New()
 		// fiber context
 		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 		defer app.ReleaseCtx(ctx)
@@ -374,7 +374,7 @@ func Test_Session_Cookie(t *testing.T) {
 	// session store
 	store := New()
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 	// fiber context
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -391,7 +391,7 @@ func Test_Session_Cookie(t *testing.T) {
 func Test_Session_Cookie_In_Response(t *testing.T) {
 	t.Parallel()
 	store := New()
-	app := fiber.New()
+	app := lightning.New()
 
 	// fiber context
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -416,7 +416,7 @@ func Test_Session_Cookie_In_Response(t *testing.T) {
 func Test_Session_Deletes_Single_Key(t *testing.T) {
 	t.Parallel()
 	store := New()
-	app := fiber.New()
+	app := lightning.New()
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -443,7 +443,7 @@ func Test_Session_Deletes_Single_Key(t *testing.T) {
 // Regression: https://github.com/gofiber/fiber/issues/1395
 func Test_Session_Regenerate(t *testing.T) {
 	// fiber instance
-	app := fiber.New()
+	app := lightning.New()
 	t.Run("set fresh to be true when regenerating a session", func(t *testing.T) {
 		// session store
 		store := New()
@@ -483,7 +483,7 @@ func Test_Session_Regenerate(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Session -benchmem -count=4
 func Benchmark_Session(b *testing.B) {
-	app, store := fiber.New(), New()
+	app, store := lightning.New(), New()
 	c := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(c)
 	c.Request().Header.SetCookie(store.sessionName, "12356789")

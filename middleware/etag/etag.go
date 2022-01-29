@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"hash/crc32"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/bytebufferpool"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/bytebufferpool"
 )
 
 var (
@@ -14,35 +14,35 @@ var (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
 	crc32q := crc32.MakeTable(0xD5828281)
 
 	// Return new handler
-	return func(c *fiber.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Return err if next handler returns one
-		if err = c.Next(); err != nil {
+		if err = req.Next(); err != nil {
 			return
 		}
 
 		// Don't generate ETags for invalid responses
-		if c.Response().StatusCode() != fiber.StatusOK {
+		if res.Ctx().Response().StatusCode() != lightning.StatusOK {
 			return
 		}
-		body := c.Response().Body()
+		body := res.Ctx().Response().Body()
 		// Skips ETag if no response body is present
 		if len(body) == 0 {
 			return
 		}
 		// Skip ETag if header is already present
-		if c.Response().Header.PeekBytes(normalizedHeaderETag) != nil {
+		if res.Ctx().Response().Header.PeekBytes(normalizedHeaderETag) != nil {
 			return
 		}
 
@@ -64,31 +64,31 @@ func New(config ...Config) fiber.Handler {
 		etag := bb.Bytes()
 
 		// Get ETag header from request
-		clientEtag := c.Request().Header.Peek(fiber.HeaderIfNoneMatch)
+		clientEtag := res.Ctx().Request().Header.Peek(lightning.HeaderIfNoneMatch)
 
 		// Check if client's ETag is weak
 		if bytes.HasPrefix(clientEtag, weakPrefix) {
 			// Check if server's ETag is weak
 			if bytes.Equal(clientEtag[2:], etag) || bytes.Equal(clientEtag[2:], etag[2:]) {
 				// W/1 == 1 || W/1 == W/1
-				c.Context().ResetBody()
+				res.Ctx().Context().ResetBody()
 
-				return c.SendStatus(fiber.StatusNotModified)
+				return res.Status(lightning.StatusNotModified).Send()
 			}
 			// W/1 != W/2 || W/1 != 2
-			c.Response().Header.SetCanonical(normalizedHeaderETag, etag)
+			res.Ctx().Response().Header.SetCanonical(normalizedHeaderETag, etag)
 
 			return
 		}
 
 		if bytes.Contains(clientEtag, etag) {
 			// 1 == 1
-			c.Context().ResetBody()
+			res.Ctx().Context().ResetBody()
 
-			return c.SendStatus(fiber.StatusNotModified)
+			return res.Status(lightning.StatusNotModified).Send()
 		}
 		// 1 != 2
-		c.Response().Header.SetCanonical(normalizedHeaderETag, etag)
+		res.Ctx().Response().Header.SetCanonical(normalizedHeaderETag, etag)
 
 		return
 	}

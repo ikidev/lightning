@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // timestampUpdatePeriod is the period which is used to check the cache expiration.
@@ -28,14 +28,14 @@ const (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
 	// Nothing to cache
 	if int(cfg.Expiration.Seconds()) < 0 {
-		return func(c *fiber.Ctx) error {
-			return c.Next()
+		return func(req *lightning.Request, res *lightning.Response) error {
+			return req.Next()
 		}
 	}
 
@@ -56,16 +56,16 @@ func New(config ...Config) fiber.Handler {
 	}()
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Only cache GET and HEAD methods
-		if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
-			c.Set(cfg.CacheHeader, cacheUnreachable)
-			return c.Next()
+		if req.Method() != lightning.MethodGet && req.Method() != lightning.MethodHead {
+			res.Header.Set(cfg.CacheHeader, cacheUnreachable)
+			return req.Next()
 		}
 
 		// Get key from request
 		// TODO(allocation optimization): try to minimize the allocation from 2 to 1
-		key := cfg.KeyGenerator(c) + "_" + c.Method()
+		key := cfg.KeyGenerator(req, res) + "_" + req.Method()
 
 		// Get entry from pool
 		e := manager.get(key)
@@ -91,46 +91,46 @@ func New(config ...Config) fiber.Handler {
 				e.body = manager.getRaw(key + "_body")
 			}
 			// Set response headers from cache
-			c.Response().SetBodyRaw(e.body)
-			c.Response().SetStatusCode(e.status)
-			c.Response().Header.SetContentTypeBytes(e.ctype)
+			res.Ctx().Response().SetBodyRaw(e.body)
+			res.Ctx().Response().SetStatusCode(e.status)
+			res.Ctx().Response().Header.SetContentTypeBytes(e.ctype)
 			if len(e.cencoding) > 0 {
-				c.Response().Header.SetBytesV(fiber.HeaderContentEncoding, e.cencoding)
+				res.Ctx().Response().Header.SetBytesV(lightning.HeaderContentEncoding, e.cencoding)
 			}
 			// Set Cache-Control header if enabled
 			if cfg.CacheControl {
 				maxAge := strconv.FormatUint(e.exp-ts, 10)
-				c.Set(fiber.HeaderCacheControl, "public, max-age="+maxAge)
+				res.Ctx().Set(lightning.HeaderCacheControl, "public, max-age="+maxAge)
 			}
 
-			c.Set(cfg.CacheHeader, cacheHit)
+			res.Header.Set(cfg.CacheHeader, cacheHit)
 
 			// Return response
 			return nil
 		}
 
 		// Continue stack, return err to Fiber if exist
-		if err := c.Next(); err != nil {
+		if err := req.Next(); err != nil {
 			return err
 		}
 
 		// Don't cache response if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			c.Set(cfg.CacheHeader, cacheUnreachable)
+		if cfg.Next != nil && cfg.Next(req, res) {
+			res.Header.Set(cfg.CacheHeader, cacheUnreachable)
 			return nil
 		}
 
 		// Cache response
-		e.body = utils.CopyBytes(c.Response().Body())
-		e.status = c.Response().StatusCode()
-		e.ctype = utils.CopyBytes(c.Response().Header.ContentType())
-		e.cencoding = utils.CopyBytes(c.Response().Header.Peek(fiber.HeaderContentEncoding))
+		e.body = utils.CopyBytes(res.Ctx().Response().Body())
+		e.status = res.Ctx().Response().StatusCode()
+		e.ctype = utils.CopyBytes(res.Ctx().Response().Header.ContentType())
+		e.cencoding = utils.CopyBytes(res.Ctx().Response().Header.Peek(lightning.HeaderContentEncoding))
 
 		// default cache expiration
 		expiration := uint64(cfg.Expiration.Seconds())
 		// Calculate expiration by response header or other setting
 		if cfg.ExpirationGenerator != nil {
-			expiration = uint64(cfg.ExpirationGenerator(c, &cfg).Seconds())
+			expiration = uint64(cfg.ExpirationGenerator(req, res, &cfg).Seconds())
 		}
 		e.exp = ts + expiration
 
@@ -146,7 +146,7 @@ func New(config ...Config) fiber.Handler {
 			manager.set(key, e, cfg.Expiration)
 		}
 
-		c.Set(cfg.CacheHeader, cacheMiss)
+		res.Header.Set(cfg.CacheHeader, cacheMiss)
 
 		// Finish response
 		return nil

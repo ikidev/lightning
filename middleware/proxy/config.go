@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 	"github.com/valyala/fasthttp"
 )
 
@@ -13,7 +13,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(c *lightning.Ctx) bool
 
 	// Servers defines a list of <scheme>://<host> HTTP servers,
 	//
@@ -26,12 +26,12 @@ type Config struct {
 	// ModifyRequest allows you to alter the request
 	//
 	// Optional. Default: nil
-	ModifyRequest fiber.Handler
+	ModifyRequest lightning.Handler
 
 	// ModifyResponse allows you to alter the response
 	//
 	// Optional. Default: nil
-	ModifyResponse fiber.Handler
+	ModifyResponse lightning.Handler
 
 	// Timeout is the request timeout used when calling the proxy client
 	//

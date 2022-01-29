@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 var (
@@ -12,7 +12,7 @@ var (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
@@ -22,32 +22,32 @@ func New(config ...Config) fiber.Handler {
 	dummyValue := []byte{'+'}
 
 	// Return new handler
-	return func(c *fiber.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		var token string
 
 		// Action depends on the HTTP method
-		switch c.Method() {
-		case fiber.MethodGet, fiber.MethodHead, fiber.MethodOptions, fiber.MethodTrace:
+		switch req.Method() {
+		case lightning.MethodGet, lightning.MethodHead, lightning.MethodOptions, lightning.MethodTrace:
 			// Declare empty token and try to get existing CSRF from cookie
-			token = c.Cookies(cfg.CookieName)
+			token = req.GetCookie(cfg.CookieName)
 		default:
 			// Assume that anything not defined as 'safe' by RFC7231 needs protection
 
 			// Extract token from client request i.e. header, query, param, form or cookie
-			token, err = cfg.extractor(c)
+			token, err = cfg.extractor(req, res)
 			if err != nil {
-				return cfg.ErrorHandler(c, err)
+				return cfg.ErrorHandler(req, res, err)
 			}
 
 			// if token does not exist in Storage
 			if manager.getRaw(token) == nil {
 				// Expire cookie
-				c.Cookie(&fiber.Cookie{
+				res.SetCookie(&lightning.Cookie{
 					Name:     cfg.CookieName,
 					Domain:   cfg.CookieDomain,
 					Path:     cfg.CookiePath,
@@ -56,7 +56,7 @@ func New(config ...Config) fiber.Handler {
 					HTTPOnly: cfg.CookieHTTPOnly,
 					SameSite: cfg.CookieSameSite,
 				})
-				return cfg.ErrorHandler(c, errTokenNotFound)
+				return cfg.ErrorHandler(req, res, errTokenNotFound)
 			}
 		}
 
@@ -70,7 +70,7 @@ func New(config ...Config) fiber.Handler {
 		manager.setRaw(token, dummyValue, cfg.Expiration)
 
 		// Create cookie to pass token to client
-		cookie := &fiber.Cookie{
+		cookie := &lightning.Cookie{
 			Name:     cfg.CookieName,
 			Value:    token,
 			Domain:   cfg.CookieDomain,
@@ -81,18 +81,18 @@ func New(config ...Config) fiber.Handler {
 			SameSite: cfg.CookieSameSite,
 		}
 		// Set cookie to response
-		c.Cookie(cookie)
+		res.SetCookie(cookie)
 
 		// Protect clients from caching the response by telling the browser
 		// a new header value is generated
-		c.Vary(fiber.HeaderCookie)
+		res.Ctx().Vary(lightning.HeaderCookie)
 
 		// Store token in context if set
 		if cfg.ContextKey != "" {
-			c.Locals(cfg.ContextKey, token)
+			req.Locals(cfg.ContextKey, token)
 		}
 
 		// Continue stack
-		return c.Next()
+		return req.Next()
 	}
 }

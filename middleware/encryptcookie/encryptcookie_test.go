@@ -5,25 +5,25 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 var testKey = GenerateKey()
 
 func Test_Middleware_Encrypt_Cookie(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Key: testKey,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("value=" + c.Cookies("test"))
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("value=" + req.GetCookie("test"))
 	})
-	app.Post("/", func(c *fiber.Ctx) error {
-		c.Cookie(&fiber.Cookie{
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		res.SetCookie(&lightning.Cookie{
 			Name:  "test",
 			Value: "SomeThing",
 		})
@@ -72,17 +72,17 @@ func Test_Middleware_Encrypt_Cookie(t *testing.T) {
 }
 
 func Test_Encrypt_Cookie_Next(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Key: testKey,
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		c.Cookie(&fiber.Cookie{
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		res.SetCookie(&lightning.Cookie{
 			Name:  "test",
 			Value: "SomeThing",
 		})
@@ -95,7 +95,7 @@ func Test_Encrypt_Cookie_Next(t *testing.T) {
 }
 
 func Test_Encrypt_Cookie_Except(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Key: testKey,
@@ -104,12 +104,12 @@ func Test_Encrypt_Cookie_Except(t *testing.T) {
 		},
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		c.Cookie(&fiber.Cookie{
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		res.SetCookie(&lightning.Cookie{
 			Name:  "test1",
 			Value: "SomeThing",
 		})
-		c.Cookie(&fiber.Cookie{
+		res.SetCookie(&lightning.Cookie{
 			Name:  "test2",
 			Value: "SomeThing",
 		})
@@ -137,7 +137,7 @@ func Test_Encrypt_Cookie_Except(t *testing.T) {
 }
 
 func Test_Encrypt_Cookie_Custom_Encryptor(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Key: testKey,
@@ -150,11 +150,11 @@ func Test_Encrypt_Cookie_Custom_Encryptor(t *testing.T) {
 		},
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("value=" + c.Cookies("test"))
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("value=" + req.GetCookie("test"))
 	})
-	app.Post("/", func(c *fiber.Ctx) error {
-		c.Cookie(&fiber.Cookie{
+	app.Post("/", func(_ *lightning.Request, res *lightning.Response) error {
+		res.SetCookie(&lightning.Cookie{
 			Name:  "test",
 			Value: "SomeThing",
 		})

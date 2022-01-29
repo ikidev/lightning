@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
 	"golang.org/x/sys/windows"
 )
 

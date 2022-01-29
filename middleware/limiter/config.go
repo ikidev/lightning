@@ -1,10 +1,9 @@
 package limiter
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 // Config defines the config for middleware.
@@ -12,7 +11,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(c *lightning.Ctx) bool
 
 	// Max number of recent connections during `Duration` seconds before sending a 429 response
 	//
@@ -24,7 +23,7 @@ type Config struct {
 	// Default: func(c *fiber.Ctx) string {
 	//   return c.IP()
 	// }
-	KeyGenerator func(*fiber.Ctx) string
+	KeyGenerator func(*lightning.Request, *lightning.Response) string
 
 	// Expiration is the time on how long to keep records of requests in memory
 	//
@@ -36,7 +35,7 @@ type Config struct {
 	// Default: func(c *fiber.Ctx) error {
 	//   return c.SendStatus(fiber.StatusTooManyRequests)
 	// }
-	LimitReached fiber.Handler
+	LimitReached lightning.Handler
 
 	// When set to true, requests with StatusCode >= 400 won't be counted.
 	//
@@ -51,32 +50,23 @@ type Config struct {
 	// Store is used to store the state of the middleware
 	//
 	// Default: an in memory store for this process only
-	Storage fiber.Storage
+	Storage lightning.Storage
 
 	// LimiterMiddleware is the struct that implements a limiter middleware.
 	//
 	// Default: a new Fixed Window Rate Limiter
 	LimiterMiddleware LimiterHandler
-
-	// DEPRECATED: Use Expiration instead
-	Duration time.Duration
-
-	// DEPRECATED, use Storage instead
-	Store fiber.Storage
-
-	// DEPRECATED, use KeyGenerator instead
-	Key func(*fiber.Ctx) string
 }
 
 // ConfigDefault is the default config
 var ConfigDefault = Config{
 	Max:        5,
 	Expiration: 1 * time.Minute,
-	KeyGenerator: func(c *fiber.Ctx) string {
-		return c.IP()
+	KeyGenerator: func(req *lightning.Request, res *lightning.Response) string {
+		return req.IP()
 	},
-	LimitReached: func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusTooManyRequests)
+	LimitReached: func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusTooManyRequests).Send()
 	},
 	SkipFailedRequests:     false,
 	SkipSuccessfulRequests: false,
@@ -93,19 +83,6 @@ func configDefault(config ...Config) Config {
 	// Override default config
 	cfg := config[0]
 
-	// Set default values
-	if int(cfg.Duration.Seconds()) > 0 {
-		fmt.Println("[LIMITER] Duration is deprecated, please use Expiration")
-		cfg.Expiration = cfg.Duration
-	}
-	if cfg.Key != nil {
-		fmt.Println("[LIMITER] Key is deprecated, please us KeyGenerator")
-		cfg.KeyGenerator = cfg.Key
-	}
-	if cfg.Store != nil {
-		fmt.Println("[LIMITER] Store is deprecated, please use Storage")
-		cfg.Storage = cfg.Store
-	}
 	if cfg.Next == nil {
 		cfg.Next = ConfigDefault.Next
 	}

@@ -8,15 +8,12 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-
-	"net"
-	"os"
 	"reflect"
 	"runtime"
 	"sync"
 	"sync/atomic"
 
-	googleuuid "github.com/gofiber/fiber/v2/internal/uuid"
+	googleuuid "github.com/ikidev/lightning/internal/uuid"
 )
 
 const (
@@ -88,24 +85,4 @@ func FunctionName(fn interface{}) string {
 		return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 	}
 	return t.String()
-}
-
-// GetArgument check if key is in arguments
-func GetArgument(arg string) bool {
-	for i := range os.Args[1:] {
-		if os.Args[1:][i] == arg {
-			return true
-		}
-	}
-	return false
-}
-
-// IncrementIPRange Find available next IP address
-func IncrementIPRange(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
 }

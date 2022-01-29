@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
-	"github.com/gofiber/fiber/v2/internal/wmi"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/wmi"
 	"golang.org/x/sys/windows"
 )
 

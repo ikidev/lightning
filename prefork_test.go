@@ -2,7 +2,7 @@
 // 📄 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 // 💖 Maintained and modified for Fiber by @renewerner87
-package fiber
+package lightning
 
 import (
 	"crypto/tls"
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/utils"
 )
 
 func Test_App_Prefork_Child_Process(t *testing.T) {

@@ -6,19 +6,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 type Session struct {
-	id         string        // session id
-	fresh      bool          // if new session
-	ctx        *fiber.Ctx    // fiber context
-	config     *Store        // store configuration
-	data       *data         // key value data
-	byteBuffer *bytes.Buffer // byte buffer for the en- and decode
-	exp        time.Duration // expiration of this session
+	id         string         // session id
+	fresh      bool           // if new session
+	ctx        *lightning.Ctx // fiber context
+	config     *Store         // store configuration
+	data       *data          // key value data
+	byteBuffer *bytes.Buffer  // byte buffer for the en- and decode
+	exp        time.Duration  // expiration of this session
 }
 
 var sessionPool = sync.Pool{

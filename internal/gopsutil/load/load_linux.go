@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gofiber/fiber/v2/internal/gopsutil/common"
+	"github.com/ikidev/lightning/internal/gopsutil/common"
 )
 
 func Avg() (*AvgStat, error) {

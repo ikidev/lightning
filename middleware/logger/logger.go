@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/bytebufferpool"
-	"github.com/gofiber/fiber/v2/internal/colorable"
-	"github.com/gofiber/fiber/v2/internal/fasttemplate"
-	"github.com/gofiber/fiber/v2/internal/isatty"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/bytebufferpool"
+	"github.com/ikidev/lightning/internal/colorable"
+	"github.com/ikidev/lightning/internal/fasttemplate"
+	"github.com/ikidev/lightning/internal/isatty"
 	"github.com/valyala/fasthttp"
 )
 
@@ -42,23 +42,21 @@ const (
 	TagBytesReceived     = "bytesReceived"
 	TagRoute             = "route"
 	TagError             = "error"
-	// DEPRECATED: Use TagReqHeader instead
-	TagHeader     = "header:"
-	TagReqHeader  = "reqHeader:"
-	TagRespHeader = "respHeader:"
-	TagLocals     = "locals:"
-	TagQuery      = "query:"
-	TagForm       = "form:"
-	TagCookie     = "cookie:"
-	TagBlack      = "black"
-	TagRed        = "red"
-	TagGreen      = "green"
-	TagYellow     = "yellow"
-	TagBlue       = "blue"
-	TagMagenta    = "magenta"
-	TagCyan       = "cyan"
-	TagWhite      = "white"
-	TagReset      = "reset"
+	TagReqHeader         = "reqHeader:"
+	TagRespHeader        = "respHeader:"
+	TagLocals            = "locals:"
+	TagQuery             = "query:"
+	TagForm              = "form:"
+	TagCookie            = "cookie:"
+	TagBlack             = "black"
+	TagRed               = "red"
+	TagGreen             = "green"
+	TagYellow            = "yellow"
+	TagBlue              = "blue"
+	TagMagenta           = "magenta"
+	TagCyan              = "cyan"
+	TagWhite             = "white"
+	TagReset             = "reset"
 )
 
 // Color values
@@ -75,7 +73,7 @@ const (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
@@ -114,7 +112,7 @@ func New(config ...Config) fiber.Handler {
 	var (
 		once       sync.Once
 		mu         sync.Mutex
-		errHandler fiber.ErrorHandler
+		errHandler lightning.ErrorHandler
 	)
 
 	// If colors are enabled, check terminal compatibility
@@ -127,16 +125,16 @@ func New(config ...Config) fiber.Handler {
 	errPadding := 15
 	errPaddingStr := strconv.Itoa(errPadding)
 	// Return new handler
-	return func(c *fiber.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Set error handler once
 		once.Do(func() {
 			// get longested possible path
-			stack := c.App().Stack()
+			stack := req.Ctx().App().Stack()
 			for m := range stack {
 				for r := range stack[m] {
 					if len(stack[m][r].Path) > errPadding {
@@ -146,7 +144,7 @@ func New(config ...Config) fiber.Handler {
 				}
 			}
 			// override error handler
-			errHandler = c.App().ErrorHandler
+			errHandler = req.Ctx().App().ErrorHandler
 		})
 
 		var start, stop time.Time
@@ -157,12 +155,12 @@ func New(config ...Config) fiber.Handler {
 		}
 
 		// Handle request, store err for logging
-		chainErr := c.Next()
+		chainErr := req.Next()
 
 		// Manually call error handler
 		if chainErr != nil {
-			if err := errHandler(c, chainErr); err != nil {
-				_ = c.SendStatus(fiber.StatusInternalServerError)
+			if err := errHandler(req, res, chainErr); err != nil {
+				_ = res.Status(lightning.StatusInternalServerError).Send()
 			}
 		}
 
@@ -185,11 +183,11 @@ func New(config ...Config) fiber.Handler {
 			// Format log to buffer
 			_, _ = buf.WriteString(fmt.Sprintf("%s |%s %3d %s| %7v | %15s |%s %-7s %s| %-"+errPaddingStr+"s %s\n",
 				timestamp.Load().(string),
-				statusColor(c.Response().StatusCode()), c.Response().StatusCode(), cReset,
+				statusColor(res.Ctx().Response().StatusCode()), res.Ctx().Response().StatusCode(), cReset,
 				stop.Sub(start).Round(time.Millisecond),
-				c.IP(),
-				methodColor(c.Method()), c.Method(), cReset,
-				c.Path(),
+				req.IP(),
+				methodColor(req.Method()), req.Method(), cReset,
+				req.Path(),
 				formatErr,
 			))
 
@@ -209,55 +207,55 @@ func New(config ...Config) fiber.Handler {
 			case TagTime:
 				return buf.WriteString(timestamp.Load().(string))
 			case TagReferer:
-				return buf.WriteString(c.Get(fiber.HeaderReferer))
+				return buf.WriteString(req.Header.Get(lightning.HeaderReferer))
 			case TagProtocol:
-				return buf.WriteString(c.Protocol())
+				return buf.WriteString(req.Protocol())
 			case TagPid:
 				return buf.WriteString(pid)
 			case TagPort:
-				return buf.WriteString(c.Port())
+				return buf.WriteString(req.Port())
 			case TagIP:
-				return buf.WriteString(c.IP())
+				return buf.WriteString(req.IP())
 			case TagIPs:
-				return buf.WriteString(c.Get(fiber.HeaderXForwardedFor))
+				return buf.WriteString(req.Header.Get(lightning.HeaderXForwardedFor))
 			case TagHost:
-				return buf.WriteString(c.Hostname())
+				return buf.WriteString(req.Hostname())
 			case TagPath:
-				return buf.WriteString(c.Path())
+				return buf.WriteString(req.Path())
 			case TagURL:
-				return buf.WriteString(c.OriginalURL())
+				return buf.WriteString(req.OriginalURL())
 			case TagUA:
-				return buf.WriteString(c.Get(fiber.HeaderUserAgent))
+				return buf.WriteString(req.Header.Get(lightning.HeaderUserAgent))
 			case TagLatency:
 				return buf.WriteString(stop.Sub(start).String())
 			case TagBody:
-				return buf.Write(c.Body())
+				return buf.Write(req.Body())
 			case TagBytesReceived:
-				return appendInt(buf, len(c.Request().Body()))
+				return appendInt(buf, len(req.Ctx().Request().Body()))
 			case TagBytesSent:
-				return appendInt(buf, len(c.Response().Body()))
+				return appendInt(buf, len(req.Ctx().Response().Body()))
 			case TagRoute:
-				return buf.WriteString(c.Route().Path)
+				return buf.WriteString(req.Ctx().Route().Path)
 			case TagStatus:
 				if cfg.enableColors {
-					return buf.WriteString(fmt.Sprintf("%s %3d %s", statusColor(c.Response().StatusCode()), c.Response().StatusCode(), cReset))
+					return buf.WriteString(fmt.Sprintf("%s %3d %s", statusColor(res.Ctx().Response().StatusCode()), res.Ctx().Response().StatusCode(), cReset))
 				}
-				return appendInt(buf, c.Response().StatusCode())
+				return appendInt(buf, res.Ctx().Response().StatusCode())
 			case TagResBody:
-				return buf.Write(c.Response().Body())
+				return buf.Write(res.Ctx().Response().Body())
 			case TagReqHeaders:
 				reqHeaders := make([]string, 0)
-				for k, v := range c.GetReqHeaders() {
+				for k, v := range req.Header.All() {
 					reqHeaders = append(reqHeaders, k+"="+v)
 				}
 				return buf.Write([]byte(strings.Join(reqHeaders, "&")))
 			case TagQueryStringParams:
-				return buf.WriteString(c.Request().URI().QueryArgs().String())
+				return buf.WriteString(req.QueryArgs().String())
 			case TagMethod:
 				if cfg.enableColors {
-					return buf.WriteString(fmt.Sprintf("%s %-7s %s", methodColor(c.Method()), c.Method(), cReset))
+					return buf.WriteString(fmt.Sprintf("%s %-7s %s", methodColor(req.Method()), req.Method(), cReset))
 				}
-				return buf.WriteString(c.Method())
+				return buf.WriteString(req.Method())
 			case TagBlack:
 				return buf.WriteString(cBlack)
 			case TagRed:
@@ -285,19 +283,17 @@ func New(config ...Config) fiber.Handler {
 				// Check if we have a value tag i.e.: "reqHeader:x-key"
 				switch {
 				case strings.HasPrefix(tag, TagReqHeader):
-					return buf.WriteString(c.Get(tag[10:]))
-				case strings.HasPrefix(tag, TagHeader):
-					return buf.WriteString(c.Get(tag[7:]))
+					return buf.WriteString(req.Header.Get(tag[10:]))
 				case strings.HasPrefix(tag, TagRespHeader):
-					return buf.WriteString(c.GetRespHeader(tag[11:]))
+					return buf.WriteString(res.Header.Get(tag[11:]))
 				case strings.HasPrefix(tag, TagQuery):
-					return buf.WriteString(c.Query(tag[6:]))
+					return buf.WriteString(req.Query(tag[6:]))
 				case strings.HasPrefix(tag, TagForm):
-					return buf.WriteString(c.FormValue(tag[5:]))
+					return buf.WriteString(req.FormValue(tag[5:]))
 				case strings.HasPrefix(tag, TagCookie):
-					return buf.WriteString(c.Cookies(tag[7:]))
+					return buf.WriteString(req.GetCookie(tag[7:]))
 				case strings.HasPrefix(tag, TagLocals):
-					switch v := c.Locals(tag[7:]).(type) {
+					switch v := req.Locals(tag[7:]).(type) {
 					case []byte:
 						return buf.Write(v)
 					case string:
@@ -316,6 +312,7 @@ func New(config ...Config) fiber.Handler {
 			_, _ = buf.WriteString(err.Error())
 		}
 		mu.Lock()
+
 		// Write buffer to output
 		if _, err := cfg.Output.Write(buf.Bytes()); err != nil {
 			// Write error to output

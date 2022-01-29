@@ -2,14 +2,19 @@
 // 🤖 Github Repository: https://github.com/gofiber/fiber
 // 📌 API Documentation: https://docs.gofiber.io
 
-package fiber
+package lightning
 
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"github.com/ikidev/lightning/internal/schema"
+	"github.com/ikidev/lightning/utils"
+	"github.com/valyala/bytebufferpool"
+	"github.com/valyala/fasthttp"
 	"io"
 	"mime/multipart"
 	"net"
@@ -21,12 +26,6 @@ import (
 	"sync"
 	"text/template"
 	"time"
-
-	"github.com/gofiber/fiber/v2/internal/bytebufferpool"
-	"github.com/gofiber/fiber/v2/internal/go-json"
-	"github.com/gofiber/fiber/v2/internal/schema"
-	"github.com/gofiber/fiber/v2/utils"
-	"github.com/valyala/fasthttp"
 )
 
 // maxParams defines the maximum number of parameters per route.
@@ -51,7 +50,6 @@ type Ctx struct {
 	indexHandler        int                  // Index of the current handler
 	method              string               // HTTP method
 	methodINT           int                  // HTTP method INT equivalent
-	baseURI             string               // HTTP base uri
 	path                string               // HTTP path with the modifications by the configuration -> string copy from pathBuffer
 	pathBuffer          []byte               // HTTP path buffer
 	detectionPath       string               // Route detection path                                  -> string copy from detectionPathBuffer
@@ -61,6 +59,9 @@ type Ctx struct {
 	values              [maxParams]string    // Route parameter values
 	fasthttp            *fasthttp.RequestCtx // Reference to *fasthttp.RequestCtx
 	matched             bool                 // Non use route matched
+
+	req *Request
+	res *Response
 }
 
 // Range data for c.Range
@@ -70,19 +71,6 @@ type Range struct {
 		Start int
 		End   int
 	}
-}
-
-// Cookie data for c.Cookie
-type Cookie struct {
-	Name     string    `json:"name"`
-	Value    string    `json:"value"`
-	Path     string    `json:"path"`
-	Domain   string    `json:"domain"`
-	MaxAge   int       `json:"max_age"`
-	Expires  time.Time `json:"expires"`
-	Secure   bool      `json:"secure"`
-	HTTPOnly bool      `json:"http_only"`
-	SameSite string    `json:"same_site"`
 }
 
 // Views is the interface that wraps the Render function.
@@ -123,11 +111,32 @@ func (app *App) AcquireCtx(fctx *fasthttp.RequestCtx) *Ctx {
 	c.methodINT = methodInt(c.method)
 	// Attach *fasthttp.RequestCtx to ctx
 	c.fasthttp = fctx
-	// reset base uri
-	c.baseURI = ""
 	// Prettify path
 	c.configDependentPaths()
 	return c
+}
+
+// AcquireReqRes Builds a new Req, Res from the pool.
+func (app *App) AcquireReqRes(fctx *fasthttp.RequestCtx) (*Request, *Response) {
+	c := app.pool.Get().(*Ctx)
+	// Set app reference
+	c.app = app
+	// Reset route and handler index
+	c.indexRoute = -1
+	c.indexHandler = 0
+	// Reset matched flag
+	c.matched = false
+	// Set paths
+	c.pathOriginal = app.getString(fctx.URI().PathOriginal())
+	// Set method
+	c.method = app.getString(fctx.Request.Header.Method())
+	c.methodINT = methodInt(c.method)
+	// Attach *fasthttp.RequestCtx to ctx
+	c.fasthttp = fctx
+	// Prettify path
+	c.configDependentPaths()
+
+	return buildRouteCallback(c)
 }
 
 // ReleaseCtx releases the ctx back into the pool.
@@ -220,7 +229,7 @@ func (c *Ctx) Append(field string, values ...string) {
 	if len(values) == 0 {
 		return
 	}
-	h := c.app.getString(c.fasthttp.Response.Header.Peek(field))
+	h := utils.UnsafeString(c.fasthttp.Response.Header.Peek(field))
 	originalH := h
 	for _, value := range values {
 		if len(h) == 0 {
@@ -249,13 +258,7 @@ func (c *Ctx) Attachment(filename ...string) {
 
 // BaseURL returns (protocol + host + base path).
 func (c *Ctx) BaseURL() string {
-	// TODO: Could be improved: 53.8 ns/op  32 B/op  1 allocs/op
-	// Should work like https://codeigniter.com/user_guide/helpers/url_helper.html
-	if c.baseURI != "" {
-		return c.baseURI
-	}
-	c.baseURI = c.Protocol() + "://" + c.Hostname()
-	return c.baseURI
+	return c.Protocol() + "://" + c.Hostname()
 }
 
 // Body contains the raw body submitted in a POST request.
@@ -324,15 +327,13 @@ func decoderBuilder(parserConfig ParserConfig) interface{} {
 // If none of the content types above are matched, it will return a ErrUnprocessableEntity error
 func (c *Ctx) BodyParser(out interface{}) error {
 	// Get content-type
-	ctype := utils.ToLower(utils.UnsafeString(c.fasthttp.Request.Header.ContentType()))
-
-	ctype = utils.ParseVendorSpecificContentType(ctype)
+	cType := utils.ParseVendorSpecificContentType(utils.ToLower(utils.UnsafeString(c.fasthttp.Request.Header.ContentType())))
 
 	// Parse body accordingly
-	if strings.HasPrefix(ctype, MIMEApplicationJSON) {
+	if strings.HasPrefix(cType, MIMEApplicationJSON) {
 		return c.app.config.JSONDecoder(c.Body(), out)
 	}
-	if strings.HasPrefix(ctype, MIMEApplicationForm) {
+	if strings.HasPrefix(cType, MIMEApplicationForm) {
 		data := make(map[string][]string)
 		c.fasthttp.PostArgs().VisitAll(func(key, val []byte) {
 			k := utils.UnsafeString(key)
@@ -351,14 +352,14 @@ func (c *Ctx) BodyParser(out interface{}) error {
 
 		return c.parseToStruct(bodyTag, out, data)
 	}
-	if strings.HasPrefix(ctype, MIMEMultipartForm) {
+	if strings.HasPrefix(cType, MIMEMultipartForm) {
 		data, err := c.fasthttp.MultipartForm()
 		if err != nil {
 			return err
 		}
 		return c.parseToStruct(bodyTag, out, data.Value)
 	}
-	if strings.HasPrefix(ctype, MIMETextXML) || strings.HasPrefix(ctype, MIMEApplicationXML) {
+	if strings.HasPrefix(cType, MIMETextXML) || strings.HasPrefix(cType, MIMEApplicationXML) {
 		return xml.Unmarshal(c.Body(), out)
 	}
 	// No suitable content type found
@@ -453,14 +454,14 @@ func (c *Ctx) Download(file string, filename ...string) error {
 	return c.SendFile(file)
 }
 
-// Request return the *fasthttp.Request object
+// FHRequest return the *fasthttp.Request object
 // This allows you to use all fasthttp request methods
 // https://godoc.org/github.com/valyala/fasthttp#Request
 func (c *Ctx) Request() *fasthttp.Request {
 	return &c.fasthttp.Request
 }
 
-// Response return the *fasthttp.Response object
+// FHResponse return the *fasthttp.Response object
 // This allows you to use all fasthttp response methods
 // https://godoc.org/github.com/valyala/fasthttp#Response
 func (c *Ctx) Response() *fasthttp.Response {
@@ -774,10 +775,10 @@ func (c *Ctx) Next() (err error) {
 	// Did we executed all route handlers?
 	if c.indexHandler < len(c.route.Handlers) {
 		// Continue route stack
-		err = c.route.Handlers[c.indexHandler](c)
+		err = c.route.Handlers[c.indexHandler](buildRouteCallback(c))
 	} else {
 		// Continue handler stack
-		_, err = c.app.next(c)
+		_, err = c.app.next(buildRouteCallback(c))
 	}
 	return err
 }
@@ -1033,8 +1034,8 @@ func (c *Ctx) Range(size int) (rangeData Range, err error) {
 	return
 }
 
-// Redirect to the URL derived from the specified path, with specified status.
-// If status is not specified, status defaults to 302 Found.
+// Redirect to the URL derived from the specified path, with specified StatusCode.
+// If StatusCode is not specified, StatusCode defaults to 302 Found.
 func (c *Ctx) Redirect(location string, status ...int) error {
 	c.setCanonical(HeaderLocation, location)
 	if len(status) > 0 {
@@ -1194,13 +1195,13 @@ func (c *Ctx) SendFile(file string, compress ...bool) error {
 	defer c.fasthttp.Request.SetRequestURI(originalURL)
 	// Set new URI for fileHandler
 	c.fasthttp.Request.SetRequestURI(file)
-	// Save status code
+	// Save StatusCode code
 	status := c.fasthttp.Response.StatusCode()
 	// Serve file
 	sendFileHandler(c.fasthttp)
-	// Get the status code which is set by fasthttp
+	// Get the StatusCode code which is set by fasthttp
 	fsStatus := c.fasthttp.Response.StatusCode()
-	// Set the status code set by the user if it is different from the fasthttp status code and 200
+	// Set the StatusCode code set by the user if it is different from the fasthttp StatusCode code and 200
 	if status != fsStatus && status != StatusOK {
 		c.Status(status)
 	}
@@ -1211,12 +1212,12 @@ func (c *Ctx) SendFile(file string, compress ...bool) error {
 	return nil
 }
 
-// SendStatus sets the HTTP status code and if the response body is empty,
-// it sets the correct status message in the body.
+// SendStatus sets the HTTP StatusCode code and if the response body is empty,
+// it sets the correct StatusCode message in the body.
 func (c *Ctx) SendStatus(status int) error {
 	c.Status(status)
 
-	// Only set status body when there is no response body
+	// Only set StatusCode body when there is no response body
 	if len(c.fasthttp.Response.Body()) == 0 {
 		return c.SendString(utils.StatusMessage(status))
 	}
@@ -1275,7 +1276,7 @@ func (c *Ctx) Stale() bool {
 	return !c.Fresh()
 }
 
-// Status sets the HTTP status for the response.
+// Status sets the HTTP StatusCode for the response.
 // This method is chainable.
 func (c *Ctx) Status(status int) *Ctx {
 	c.fasthttp.Response.SetStatusCode(status)
@@ -1382,8 +1383,7 @@ func (c *Ctx) IsProxyTrusted() bool {
 
 // IsLocalHost will return true if address is a localhost address.
 func (c *Ctx) isLocalHost(address string) bool {
-	localHosts := []string{"127.0.0.1", "0.0.0.0", "::1"}
-	for _, h := range localHosts {
+	for _, h := range []string{"127.0.0.1", "0.0.0.0", "::1"} {
 		if strings.Contains(address, h) {
 			return true
 		}
@@ -1398,4 +1398,23 @@ func (c *Ctx) IsFromLocal() bool {
 		ips = append(ips, c.IP())
 	}
 	return c.isLocalHost(ips[0])
+}
+
+func buildRouteCallback(c *Ctx) (*Request, *Response) {
+	c.req = &Request{
+		ctx: c,
+		Header: &HeaderMap{
+			ctx: c,
+			Map: c.GetReqHeaders(),
+		},
+	}
+	c.res = &Response{
+		ctx: c,
+		Header: &HeaderMap{
+			ctx: c,
+			Map: c.GetRespHeaders(),
+		},
+	}
+
+	return c.req, c.res
 }

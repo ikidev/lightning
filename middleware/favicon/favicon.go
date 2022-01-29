@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 // Config defines the config for middleware.
@@ -13,7 +13,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// File holds the path to an actual favicon that will be cached
 	//
@@ -46,7 +46,7 @@ const (
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := ConfigDefault
 
@@ -90,37 +90,37 @@ func New(config ...Config) fiber.Handler {
 	}
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Only respond to favicon requests
-		if len(c.Path()) != 12 || c.Path() != "/favicon.ico" {
-			return c.Next()
+		if len(req.Path()) != 12 || req.Path() != "/favicon.ico" {
+			return req.Next()
 		}
 
 		// Only allow GET, HEAD and OPTIONS requests
-		if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
-			if c.Method() != fiber.MethodOptions {
-				c.Status(fiber.StatusMethodNotAllowed)
+		if req.Method() != lightning.MethodGet && req.Method() != lightning.MethodHead {
+			if req.Method() != lightning.MethodOptions {
+				res.Status(lightning.StatusMethodNotAllowed)
 			} else {
-				c.Status(fiber.StatusOK)
+				res.Status(lightning.StatusOK)
 			}
-			c.Set(fiber.HeaderAllow, hAllow)
-			c.Set(fiber.HeaderContentLength, hZero)
+			res.Header.Set(lightning.HeaderAllow, hAllow)
+			res.Header.Set(lightning.HeaderContentLength, hZero)
 			return nil
 		}
 
 		// Serve cached favicon
 		if len(icon) > 0 {
-			c.Set(fiber.HeaderContentLength, iconLen)
-			c.Set(fiber.HeaderContentType, hType)
-			c.Set(fiber.HeaderCacheControl, cfg.CacheControl)
-			return c.Status(fiber.StatusOK).Send(icon)
+			res.Header.Set(lightning.HeaderContentLength, iconLen)
+			res.Header.Set(lightning.HeaderContentType, hType)
+			res.Header.Set(lightning.HeaderCacheControl, cfg.CacheControl)
+			return res.Status(lightning.StatusOK).Bytes(icon)
 		}
 
-		return c.SendStatus(fiber.StatusNoContent)
+		return res.Status(lightning.StatusNoContent).Send()
 	}
 }

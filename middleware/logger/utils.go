@@ -1,24 +1,24 @@
 package logger
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 func methodColor(method string) string {
 	switch method {
-	case fiber.MethodGet:
+	case lightning.MethodGet:
 		return cCyan
-	case fiber.MethodPost:
+	case lightning.MethodPost:
 		return cGreen
-	case fiber.MethodPut:
+	case lightning.MethodPut:
 		return cYellow
-	case fiber.MethodDelete:
+	case lightning.MethodDelete:
 		return cRed
-	case fiber.MethodPatch:
+	case lightning.MethodPatch:
 		return cWhite
-	case fiber.MethodHead:
+	case lightning.MethodHead:
 		return cMagenta
-	case fiber.MethodOptions:
+	case lightning.MethodOptions:
 		return cBlue
 	default:
 		return cReset
@@ -27,11 +27,11 @@ func methodColor(method string) string {
 
 func statusColor(code int) string {
 	switch {
-	case code >= fiber.StatusOK && code < fiber.StatusMultipleChoices:
+	case code >= lightning.StatusOK && code < lightning.StatusMultipleChoices:
 		return cGreen
-	case code >= fiber.StatusMultipleChoices && code < fiber.StatusBadRequest:
+	case code >= lightning.StatusMultipleChoices && code < lightning.StatusBadRequest:
 		return cBlue
-	case code >= fiber.StatusBadRequest && code < fiber.StatusInternalServerError:
+	case code >= lightning.StatusBadRequest && code < lightning.StatusInternalServerError:
 		return cYellow
 	default:
 		return cRed

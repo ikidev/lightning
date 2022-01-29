@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 var once sync.Once
 
 // New wraps a handler and aborts the process of the handler if the timeout is reached
-func New(handler fiber.Handler, timeout time.Duration) fiber.Handler {
+func New(handler lightning.Handler, timeout time.Duration) lightning.Handler {
 	once.Do(func() {
 		fmt.Println("[Warning] timeout contains data race issues, not ready for production!")
 	})
@@ -21,7 +21,7 @@ func New(handler fiber.Handler, timeout time.Duration) fiber.Handler {
 	}
 
 	// logic is from fasthttp.TimeoutWithCodeHandler https://github.com/valyala/fasthttp/blob/master/server.go#L418
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx *lightning.Ctx) error {
 		ch := make(chan struct{}, 1)
 
 		go func() {
@@ -35,7 +35,7 @@ func New(handler fiber.Handler, timeout time.Duration) fiber.Handler {
 		select {
 		case <-ch:
 		case <-time.After(timeout):
-			return fiber.ErrRequestTimeout
+			return lightning.ErrRequestTimeout
 		}
 
 		return nil

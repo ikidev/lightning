@@ -23,8 +23,8 @@ import (
 	"expvar"
 	"fmt"
 
-	"github.com/gofiber/fiber/v2"
-	expvarmw "github.com/gofiber/fiber/v2/middleware/expvar"
+	"github.com/ikidev/lightning"
+	expvarmw "github.com/ikidev/lightning/middleware/expvar"
 )
 
 var count = expvar.NewInt("count")

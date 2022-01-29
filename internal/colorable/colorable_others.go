@@ -6,8 +6,6 @@ package colorable
 import (
 	"io"
 	"os"
-
-	_ "github.com/gofiber/fiber/v2/internal/isatty"
 )
 
 // NewColorable returns new instance of Writer which handles escape sequence.

@@ -1,10 +1,13 @@
-package fiber
+package lightning
 
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/ikidev/lightning/utils"
+	"github.com/valyala/fasthttp"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -15,29 +18,25 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/gofiber/fiber/v2/internal/go-json"
-	"github.com/gofiber/fiber/v2/utils"
-	"github.com/valyala/fasthttp"
 )
 
-// Request represents HTTP request.
+// FHRequest represents HTTP request.
 //
-// It is forbidden copying Request instances. Create new instances
+// It is forbidden copying FHRequest instances. Create new instances
 // and use CopyTo instead.
 //
-// Request instance MUST NOT be used from concurrently running goroutines.
+// FHRequest instance MUST NOT be used from concurrently running goroutines.
 // Copy from fasthttp
-type Request = fasthttp.Request
+type FHRequest = fasthttp.Request
 
-// Response represents HTTP response.
+// FHResponse represents HTTP response.
 //
-// It is forbidden copying Response instances. Create new instances
+// It is forbidden copying FHResponse instances. Create new instances
 // and use CopyTo instead.
 //
-// Response instance MUST NOT be used from concurrently running goroutines.
+// FHResponse instance MUST NOT be used from concurrently running goroutines.
 // Copy from fasthttp
-type Response = fasthttp.Response
+type FHResponse = fasthttp.Response
 
 // Args represents query arguments.
 //
@@ -58,7 +57,7 @@ type Client struct {
 	UserAgent string
 
 	// NoDefaultUserAgentHeader when set to true, causes the default
-	// User-Agent header to be excluded from the Request.
+	// User-Agent header to be excluded from the FHRequest.
 	NoDefaultUserAgentHeader bool
 
 	// When set by an external client of Fiber it will use the provided implementation of a
@@ -152,8 +151,8 @@ type Agent struct {
 	// HostClient is an embedded fasthttp HostClient
 	*fasthttp.HostClient
 
-	req               *Request
-	resp              *Response
+	req               *FHRequest
+	resp              *FHResponse
 	dest              []byte
 	args              *Args
 	timeout           time.Duration
@@ -429,7 +428,7 @@ func (a *Agent) BasicAuthBytes(username, password []byte) *Agent {
 
 /************************** End URI Setting **************************/
 
-/************************** Request Setting **************************/
+/************************** FHRequest Setting **************************/
 
 // BodyString sets request body.
 func (a *Agent) BodyString(bodyString string) *Agent {
@@ -620,7 +619,7 @@ func (a *Agent) MultipartForm(args *Args) *Agent {
 	return a
 }
 
-/************************** End Request Setting **************************/
+/************************** End FHRequest Setting **************************/
 
 /************************** Agent Setting **************************/
 
@@ -693,8 +692,8 @@ func (a *Agent) JSONDecoder(jsonDecoder utils.JSONUnmarshal) *Agent {
 	return a
 }
 
-// Request returns Agent request instance.
-func (a *Agent) Request() *Request {
+// FHRequest returns Agent request instance.
+func (a *Agent) Request() *FHRequest {
 	return a.req
 }
 
@@ -702,7 +701,7 @@ func (a *Agent) Request() *Request {
 //
 // It is recommended obtaining custom response via AcquireResponse and release it
 // manually in performance-critical code.
-func (a *Agent) SetResponse(customResp *Response) *Agent {
+func (a *Agent) SetResponse(customResp *FHResponse) *Agent {
 	a.resp = customResp
 
 	return a
@@ -721,7 +720,7 @@ func (a *Agent) Dest(dest []byte) *Agent {
 /************************** End Agent Setting **************************/
 var warnOnce sync.Once
 
-// Bytes returns the status code, bytes body and errors of url.
+// Bytes returns the StatusCode code, bytes body and errors of url.
 func (a *Agent) Bytes() (code int, body []byte, errs []error) {
 	warnOnce.Do(func() {
 		fmt.Println("[Warning] client is still in beta, API might change in the future!")
@@ -735,7 +734,7 @@ func (a *Agent) Bytes() (code int, body []byte, errs []error) {
 
 	var (
 		req     = a.req
-		resp    *Response
+		resp    *FHResponse
 		nilResp bool
 	)
 
@@ -779,21 +778,21 @@ func (a *Agent) Bytes() (code int, body []byte, errs []error) {
 	return
 }
 
-func printDebugInfo(req *Request, resp *Response, w io.Writer) {
+func printDebugInfo(req *FHRequest, resp *FHResponse, w io.Writer) {
 	msg := fmt.Sprintf("Connected to %s(%s)\r\n\r\n", req.URI().Host(), resp.RemoteAddr())
 	_, _ = w.Write(utils.UnsafeBytes(msg))
 	_, _ = req.WriteTo(w)
 	_, _ = resp.WriteTo(w)
 }
 
-// String returns the status code, string body and errors of url.
+// String returns the StatusCode code, string body and errors of url.
 func (a *Agent) String() (int, string, []error) {
 	code, body, errs := a.Bytes()
 
 	return code, utils.UnsafeString(body), errs
 }
 
-// Struct returns the status code, bytes body and errors of url.
+// Struct returns the StatusCode code, bytes body and errors of url.
 // And bytes body will be unmarshalled to given v.
 func (a *Agent) Struct(v interface{}) (code int, body []byte, errs []error) {
 	if a.jsonDecoder == nil {
@@ -884,7 +883,7 @@ func ReleaseClient(c *Client) {
 func AcquireAgent() *Agent {
 	v := agentPool.Get()
 	if v == nil {
-		return &Agent{req: &Request{}}
+		return &Agent{req: &FHRequest{}}
 	}
 	return v.(*Agent)
 }
@@ -898,18 +897,18 @@ func ReleaseAgent(a *Agent) {
 	agentPool.Put(a)
 }
 
-// AcquireResponse returns an empty Response instance from response pool.
+// AcquireResponse returns an empty FHResponse instance from response pool.
 //
-// The returned Response instance may be passed to ReleaseResponse when it is
-// no longer needed. This allows Response recycling, reduces GC pressure
+// The returned FHResponse instance may be passed to ReleaseResponse when it is
+// no longer needed. This allows FHResponse recycling, reduces GC pressure
 // and usually improves performance.
 // Copy from fasthttp
-func AcquireResponse() *Response {
+func AcquireResponse() *FHResponse {
 	v := responsePool.Get()
 	if v == nil {
-		return &Response{}
+		return &FHResponse{}
 	}
-	return v.(*Response)
+	return v.(*FHResponse)
 }
 
 // ReleaseResponse return resp acquired via AcquireResponse to response pool.
@@ -917,7 +916,7 @@ func AcquireResponse() *Response {
 // It is forbidden accessing resp and/or its' members after returning
 // it to response pool.
 // Copy from fasthttp
-func ReleaseResponse(resp *Response) {
+func ReleaseResponse(resp *FHResponse) {
 	resp.Reset()
 	responsePool.Put(resp)
 }

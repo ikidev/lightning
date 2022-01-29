@@ -4,24 +4,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/memory"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/memory"
 )
 
 // go:generate msgp
 // msgp -file="manager.go" -o="manager_msgp.go" -tests=false -unexported
 // don't forget to replace the msgp import path to:
-// "github.com/gofiber/fiber/v2/internal/msgp"
+// "github.com/ikidev/lightning/internal/msgp"
 type item struct{}
 
 //msgp:ignore manager
 type manager struct {
 	pool    sync.Pool
 	memory  *memory.Storage
-	storage fiber.Storage
+	storage lightning.Storage
 }
 
-func newManager(storage fiber.Storage) *manager {
+func newManager(storage lightning.Storage) *manager {
 	// Create new storage handler
 	manager := &manager{
 		pool: sync.Pool{

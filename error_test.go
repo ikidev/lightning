@@ -1,11 +1,11 @@
-package fiber
+package lightning
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/gofiber/fiber/v2/internal/schema"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/internal/schema"
+	"github.com/ikidev/lightning/utils"
 )
 
 func TestConversionError(t *testing.T) {

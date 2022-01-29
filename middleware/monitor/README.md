@@ -18,8 +18,8 @@ package main
 import (
 	"log"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/middleware/monitor"
 )
 
 func main() {

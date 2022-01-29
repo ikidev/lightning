@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 func getFileExtension(path string) string {
@@ -21,7 +21,7 @@ func getFileExtension(path string) string {
 	return path[n:]
 }
 
-func dirList(c *fiber.Ctx, f http.File) error {
+func dirList(c *lightning.Ctx, f http.File) error {
 	fileinfos, err := f.Readdir(-1)
 	if err != nil {
 		return err

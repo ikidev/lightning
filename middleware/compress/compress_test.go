@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 var filedata []byte
@@ -23,13 +23,13 @@ func init() {
 
 // go test -run Test_Compress_Gzip
 func Test_Compress_Gzip(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		c.Set(fiber.HeaderContentType, fiber.MIMETextPlainCharsetUTF8)
-		return c.Send(filedata)
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		res.Header.Set(lightning.HeaderContentType, lightning.MIMETextPlainCharsetUTF8)
+		return res.Bytes(filedata)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -38,7 +38,7 @@ func Test_Compress_Gzip(t *testing.T) {
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
-	utils.AssertEqual(t, "gzip", resp.Header.Get(fiber.HeaderContentEncoding))
+	utils.AssertEqual(t, "gzip", resp.Header.Get(lightning.HeaderContentEncoding))
 
 	// Validate that the file size has shrunk
 	body, err := ioutil.ReadAll(resp.Body)
@@ -51,13 +51,13 @@ func Test_Compress_Different_Level(t *testing.T) {
 	levels := []Level{LevelBestSpeed, LevelBestCompression}
 	for _, level := range levels {
 		t.Run(fmt.Sprintf("level %d", level), func(t *testing.T) {
-			app := fiber.New()
+			app := lightning.New()
 
 			app.Use(New(Config{Level: level}))
 
-			app.Get("/", func(c *fiber.Ctx) error {
-				c.Set(fiber.HeaderContentType, fiber.MIMETextPlainCharsetUTF8)
-				return c.Send(filedata)
+			app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+				res.Header.Set(lightning.HeaderContentType, lightning.MIMETextPlainCharsetUTF8)
+				return res.Bytes(filedata)
 			})
 
 			req := httptest.NewRequest("GET", "/", nil)
@@ -66,7 +66,7 @@ func Test_Compress_Different_Level(t *testing.T) {
 			resp, err := app.Test(req)
 			utils.AssertEqual(t, nil, err, "app.Test(req)")
 			utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
-			utils.AssertEqual(t, "gzip", resp.Header.Get(fiber.HeaderContentEncoding))
+			utils.AssertEqual(t, "gzip", resp.Header.Get(lightning.HeaderContentEncoding))
 
 			// Validate that the file size has shrunk
 			body, err := ioutil.ReadAll(resp.Body)
@@ -77,12 +77,12 @@ func Test_Compress_Different_Level(t *testing.T) {
 }
 
 func Test_Compress_Deflate(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Send(filedata)
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Bytes(filedata)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -91,7 +91,7 @@ func Test_Compress_Deflate(t *testing.T) {
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
-	utils.AssertEqual(t, "deflate", resp.Header.Get(fiber.HeaderContentEncoding))
+	utils.AssertEqual(t, "deflate", resp.Header.Get(lightning.HeaderContentEncoding))
 
 	// Validate that the file size has shrunk
 	body, err := ioutil.ReadAll(resp.Body)
@@ -100,12 +100,12 @@ func Test_Compress_Deflate(t *testing.T) {
 }
 
 func Test_Compress_Brotli(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Send(filedata)
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Bytes(filedata)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -114,7 +114,7 @@ func Test_Compress_Brotli(t *testing.T) {
 	resp, err := app.Test(req, 10000)
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
-	utils.AssertEqual(t, "br", resp.Header.Get(fiber.HeaderContentEncoding))
+	utils.AssertEqual(t, "br", resp.Header.Get(lightning.HeaderContentEncoding))
 
 	// Validate that the file size has shrunk
 	body, err := ioutil.ReadAll(resp.Body)
@@ -123,12 +123,12 @@ func Test_Compress_Brotli(t *testing.T) {
 }
 
 func Test_Compress_Disabled(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{Level: LevelDisabled}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Send(filedata)
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Bytes(filedata)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -137,7 +137,7 @@ func Test_Compress_Disabled(t *testing.T) {
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 200, resp.StatusCode, "Status code")
-	utils.AssertEqual(t, "", resp.Header.Get(fiber.HeaderContentEncoding))
+	utils.AssertEqual(t, "", resp.Header.Get(lightning.HeaderContentEncoding))
 
 	// Validate the file size is not shrunk
 	body, err := ioutil.ReadAll(resp.Body)
@@ -146,11 +146,11 @@ func Test_Compress_Disabled(t *testing.T) {
 }
 
 func Test_Compress_Next_Error(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
 		return errors.New("next error")
 	})
 
@@ -160,7 +160,7 @@ func Test_Compress_Next_Error(t *testing.T) {
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
 	utils.AssertEqual(t, 500, resp.StatusCode, "Status code")
-	utils.AssertEqual(t, "", resp.Header.Get(fiber.HeaderContentEncoding))
+	utils.AssertEqual(t, "", resp.Header.Get(lightning.HeaderContentEncoding))
 
 	body, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -169,14 +169,14 @@ func Test_Compress_Next_Error(t *testing.T) {
 
 // go test -run Test_Compress_Next
 func Test_Compress_Next(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }

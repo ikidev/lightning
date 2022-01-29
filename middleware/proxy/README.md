@@ -23,8 +23,8 @@ Import the middleware package that is part of the Fiber web framework
 
 ```go
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/middleware/proxy"
 )
 ```
 

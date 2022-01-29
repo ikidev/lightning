@@ -5,13 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // go test -run Test_FileSystem
 func Test_FileSystem(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use("/test", New(Config{
 		Root: http.Dir("../../.github/testdata/fs"),
@@ -22,8 +22,8 @@ func Test_FileSystem(t *testing.T) {
 		Browse: true,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("Hello, World!")
 	})
 
 	app.Use("/spatest", New(Config{
@@ -131,39 +131,39 @@ func Test_FileSystem(t *testing.T) {
 
 // go test -run Test_FileSystem_Next
 func Test_FileSystem_Next(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{
 		Root: http.Dir("../../.github/testdata/fs"),
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }
 
 func Test_FileSystem_NonGetAndHead(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use("/test", New(Config{
 		Root: http.Dir("../../.github/testdata/fs"),
 	}))
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/test", nil))
+	resp, err := app.Test(httptest.NewRequest(lightning.MethodPost, "/test", nil))
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 404, resp.StatusCode)
 }
 
 func Test_FileSystem_Head(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use("/test", New(Config{
 		Root: http.Dir("../../.github/testdata/fs"),
 	}))
 
-	req, _ := http.NewRequest(fiber.MethodHead, "/test", nil)
+	req, _ := http.NewRequest(lightning.MethodHead, "/test", nil)
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
@@ -174,32 +174,32 @@ func Test_FileSystem_NoRoot(t *testing.T) {
 		utils.AssertEqual(t, "filesystem: Root cannot be nil", recover())
 	}()
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New())
-	_, _ = app.Test(httptest.NewRequest(fiber.MethodGet, "/", nil))
+	_, _ = app.Test(httptest.NewRequest(lightning.MethodGet, "/", nil))
 }
 
 func Test_FileSystem_UsingParam(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
-	app.Use("/:path", func(c *fiber.Ctx) error {
-		return SendFile(c, http.Dir("../../.github/testdata/fs"), c.Params("path")+".html")
+	app.Use("/:path", func(req *lightning.Request, res *lightning.Response) error {
+		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.UrlParam("path")+".html")
 	})
 
-	req, _ := http.NewRequest(fiber.MethodHead, "/index", nil)
+	req, _ := http.NewRequest(lightning.MethodHead, "/index", nil)
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 200, resp.StatusCode)
 }
 
 func Test_FileSystem_UsingParam_NonFile(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
-	app.Use("/:path", func(c *fiber.Ctx) error {
-		return SendFile(c, http.Dir("../../.github/testdata/fs"), c.Params("path")+".html")
+	app.Use("/:path", func(req *lightning.Request, res *lightning.Response) error {
+		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.UrlParam("path")+".html")
 	})
 
-	req, _ := http.NewRequest(fiber.MethodHead, "/template", nil)
+	req, _ := http.NewRequest(lightning.MethodHead, "/template", nil)
 	resp, err := app.Test(req)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, 404, resp.StatusCode)

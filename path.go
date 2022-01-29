@@ -4,13 +4,13 @@
 // ⚠️ This path parser was inspired by ucarion/urlpath (MIT License).
 // 💖 Maintained and modified for Fiber by @renewerner87
 
-package fiber
+package lightning
 
 import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning/utils"
 )
 
 // routeParser holds the path segments and param names

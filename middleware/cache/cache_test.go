@@ -12,22 +12,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/storage/memory"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/storage/memory"
+	"github.com/ikidev/lightning/utils"
 	"github.com/valyala/fasthttp"
 )
 
 func Test_Cache_CacheControl(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		CacheControl: true,
 		Expiration:   10 * time.Second,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("Hello, World!")
 	})
 
 	_, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -35,17 +35,17 @@ func Test_Cache_CacheControl(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, "public, max-age=10", resp.Header.Get(fiber.HeaderCacheControl))
+	utils.AssertEqual(t, "public, max-age=10", resp.Header.Get(lightning.HeaderCacheControl))
 }
 
 func Test_Cache_Expired(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New(Config{Expiration: 2 * time.Second}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString(fmt.Sprintf("%d", time.Now().UnixNano()))
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(fmt.Sprintf("%d", time.Now().UnixNano()))
 	})
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -77,12 +77,12 @@ func Test_Cache_Expired(t *testing.T) {
 }
 
 func Test_Cache(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
 		now := fmt.Sprintf("%d", time.Now().UnixNano())
-		return c.SendString(now)
+		return res.String(now)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -102,15 +102,15 @@ func Test_Cache(t *testing.T) {
 }
 
 func Test_Cache_WithSeveralRequests(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		CacheControl: true,
 		Expiration:   10 * time.Second,
 	}))
 
-	app.Get("/:id", func(c *fiber.Ctx) error {
-		return c.SendString(c.Params("id"))
+	app.Get("/:id", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(req.UrlParam("id"))
 	})
 
 	for runs := 0; runs < 10; runs++ {
@@ -135,13 +135,13 @@ func Test_Cache_WithSeveralRequests(t *testing.T) {
 }
 
 func Test_Cache_Invalid_Expiration(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	cache := New(Config{Expiration: 0 * time.Second})
 	app.Use(cache)
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
 		now := fmt.Sprintf("%d", time.Now().UnixNano())
-		return c.SendString(now)
+		return res.String(now)
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -161,16 +161,16 @@ func Test_Cache_Invalid_Expiration(t *testing.T) {
 }
 
 func Test_Cache_Invalid_Method(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendString(c.Query("cache"))
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(req.Query("cache"))
 	})
 
-	app.Get("/get", func(c *fiber.Ctx) error {
-		return c.SendString(c.Query("cache"))
+	app.Get("/get", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(req.Query("cache"))
 	})
 
 	resp, err := app.Test(httptest.NewRequest("POST", "/?cache=123", nil))
@@ -199,12 +199,12 @@ func Test_Cache_Invalid_Method(t *testing.T) {
 }
 
 func Test_Cache_NothingToCache(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{Expiration: -(time.Second * 1)}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString(time.Now().String())
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(time.Now().String())
 	})
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -225,21 +225,21 @@ func Test_Cache_NothingToCache(t *testing.T) {
 }
 
 func Test_Cache_CustomNext(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
-		Next: func(c *fiber.Ctx) bool {
-			return c.Response().StatusCode() != fiber.StatusOK
+		Next: func(req *lightning.Request, res *lightning.Response) bool {
+			return res.Ctx().Response().StatusCode() != lightning.StatusOK
 		},
 		CacheControl: true,
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString(time.Now().String())
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(time.Now().String())
 	})
 
-	app.Get("/error", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusInternalServerError).SendString(time.Now().String())
+	app.Get("/error", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusInternalServerError).String(time.Now().String())
 	})
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -252,26 +252,26 @@ func Test_Cache_CustomNext(t *testing.T) {
 	bodyCached, err := ioutil.ReadAll(respCached.Body)
 	utils.AssertEqual(t, nil, err)
 	utils.AssertEqual(t, true, bytes.Equal(body, bodyCached))
-	utils.AssertEqual(t, true, respCached.Header.Get(fiber.HeaderCacheControl) != "")
+	utils.AssertEqual(t, true, respCached.Header.Get(lightning.HeaderCacheControl) != "")
 
 	_, err = app.Test(httptest.NewRequest("GET", "/error", nil))
 	utils.AssertEqual(t, nil, err)
 
 	errRespCached, err := app.Test(httptest.NewRequest("GET", "/error", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, true, errRespCached.Header.Get(fiber.HeaderCacheControl) == "")
+	utils.AssertEqual(t, true, errRespCached.Header.Get(lightning.HeaderCacheControl) == "")
 }
 
 func Test_CustomKey(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	var called bool
-	app.Use(New(Config{KeyGenerator: func(c *fiber.Ctx) string {
+	app.Use(New(Config{KeyGenerator: func(req *lightning.Request, res *lightning.Response) string {
 		called = true
-		return c.Path()
+		return req.Path()
 	}}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("hi")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("hi")
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -281,18 +281,18 @@ func Test_CustomKey(t *testing.T) {
 }
 
 func Test_CustomExpiration(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	var called bool
 	var newCacheTime int
-	app.Use(New(Config{ExpirationGenerator: func(c *fiber.Ctx, cfg *Config) time.Duration {
+	app.Use(New(Config{ExpirationGenerator: func(req *lightning.Request, res *lightning.Response, cfg *Config) time.Duration {
 		called = true
-		newCacheTime, _ = strconv.Atoi(c.GetRespHeader("Cache-Time", "600"))
+		newCacheTime, _ = strconv.Atoi(res.Ctx().GetRespHeader("Cache-Time", "600"))
 		return time.Second * time.Duration(newCacheTime)
 	}}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		c.Response().Header.Add("Cache-Time", "6000")
-		return c.SendString("hi")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		res.Ctx().Response().Header.Add("Cache-Time", "6000")
+		return res.String("hi")
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -303,25 +303,25 @@ func Test_CustomExpiration(t *testing.T) {
 }
 
 func Test_CacheHeader(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Expiration: 10 * time.Second,
-		Next: func(c *fiber.Ctx) bool {
-			return c.Response().StatusCode() != fiber.StatusOK
+		Next: func(req *lightning.Request, res *lightning.Response) bool {
+			return res.Ctx().Response().StatusCode() != lightning.StatusOK
 		},
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("Hello, World!")
 	})
 
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.SendString(c.Query("cache"))
+	app.Post("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(req.Query("cache"))
 	})
 
-	app.Get("/error", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusInternalServerError).SendString(time.Now().String())
+	app.Get("/error", func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(lightning.StatusInternalServerError).String(time.Now().String())
 	})
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -342,12 +342,12 @@ func Test_CacheHeader(t *testing.T) {
 }
 
 func Test_Cache_WithHead(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New())
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
 		now := fmt.Sprintf("%d", time.Now().UnixNano())
-		return c.SendString(now)
+		return res.String(now)
 	})
 
 	req := httptest.NewRequest("HEAD", "/", nil)
@@ -367,10 +367,10 @@ func Test_Cache_WithHead(t *testing.T) {
 }
 
 func Test_Cache_WithHeadThenGet(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(New())
-	app.Get("/get", func(c *fiber.Ctx) error {
-		return c.SendString(c.Query("cache"))
+	app.Get("/get", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String(req.Query("cache"))
 	})
 
 	headResp, err := app.Test(httptest.NewRequest("HEAD", "/head?cache=123", nil))
@@ -403,14 +403,14 @@ func Test_Cache_WithHeadThenGet(t *testing.T) {
 }
 
 func Test_CustomCacheHeader(t *testing.T) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		CacheHeader: "Cache-Status",
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	app.Get("/", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("Hello, World!")
 	})
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -420,43 +420,43 @@ func Test_CustomCacheHeader(t *testing.T) {
 
 // go test -v -run=^$ -bench=Benchmark_Cache -benchmem -count=4
 func Benchmark_Cache(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New())
 
-	app.Get("/demo", func(c *fiber.Ctx) error {
+	app.Get("/demo", func(req *lightning.Request, res *lightning.Response) error {
 		data, _ := ioutil.ReadFile("../../.github/README.md")
-		return c.Status(fiber.StatusTeapot).Send(data)
+		return res.Status(lightning.StatusTeapot).Bytes(data)
 	})
 
 	h := app.Handler()
 
-	fctx := &fasthttp.RequestCtx{}
-	fctx.Request.Header.SetMethod("GET")
-	fctx.Request.SetRequestURI("/demo")
+	fCtx := &fasthttp.RequestCtx{}
+	fCtx.Request.Header.SetMethod("GET")
+	fCtx.Request.SetRequestURI("/demo")
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		h(fctx)
+		h(fCtx)
 	}
 
-	utils.AssertEqual(b, fiber.StatusTeapot, fctx.Response.Header.StatusCode())
-	utils.AssertEqual(b, true, len(fctx.Response.Body()) > 30000)
+	utils.AssertEqual(b, lightning.StatusTeapot, fCtx.Response.Header.StatusCode())
+	utils.AssertEqual(b, true, len(fCtx.Response.Body()) > 30000)
 }
 
 // go test -v -run=^$ -bench=Benchmark_Cache_Storage -benchmem -count=4
 func Benchmark_Cache_Storage(b *testing.B) {
-	app := fiber.New()
+	app := lightning.New()
 
 	app.Use(New(Config{
 		Storage: memory.New(),
 	}))
 
-	app.Get("/demo", func(c *fiber.Ctx) error {
+	app.Get("/demo", func(req *lightning.Request, res *lightning.Response) error {
 		data, _ := ioutil.ReadFile("../../.github/README.md")
-		return c.Status(fiber.StatusTeapot).Send(data)
+		return res.Status(lightning.StatusTeapot).Bytes(data)
 	})
 
 	h := app.Handler()
@@ -472,6 +472,6 @@ func Benchmark_Cache_Storage(b *testing.B) {
 		h(fctx)
 	}
 
-	utils.AssertEqual(b, fiber.StatusTeapot, fctx.Response.Header.StatusCode())
+	utils.AssertEqual(b, lightning.StatusTeapot, fctx.Response.Header.StatusCode())
 	utils.AssertEqual(b, true, len(fctx.Response.Body()) > 30000)
 }

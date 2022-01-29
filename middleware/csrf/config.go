@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // Config defines the config for middleware.
@@ -15,7 +15,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// KeyLookup is a string in the form of "<source>:<key>" that is used
 	// to extract token from the request.
@@ -61,7 +61,7 @@ type Config struct {
 	// Store is used to store the state of the middleware
 	//
 	// Optional. Default: memory.New()
-	Storage fiber.Storage
+	Storage lightning.Storage
 
 	// Context key to store generated CSRF token into context.
 	// If left empty, token will not be stored in context.
@@ -78,7 +78,7 @@ type Config struct {
 	CookieExpires time.Duration
 
 	// Deprecated, please use Cookie* related fields
-	Cookie *fiber.Cookie
+	Cookie *lightning.Cookie
 
 	// Deprecated, please use KeyLookup
 	TokenLookup string
@@ -86,10 +86,10 @@ type Config struct {
 	// ErrorHandler is executed when an error is returned from fiber.Handler.
 	//
 	// Optional. Default: DefaultErrorHandler
-	ErrorHandler fiber.ErrorHandler
+	ErrorHandler lightning.ErrorHandler
 
 	// extractor returns the csrf token from the request based on KeyLookup
-	extractor func(c *fiber.Ctx) (string, error)
+	extractor func(req *lightning.Request, res *lightning.Response) (string, error)
 }
 
 // ConfigDefault is the default config
@@ -104,8 +104,8 @@ var ConfigDefault = Config{
 }
 
 // default ErrorHandler that process return error from fiber.Handler
-var defaultErrorHandler = func(c *fiber.Ctx, err error) error {
-	return fiber.ErrForbidden
+var defaultErrorHandler = func(req *lightning.Request, res *lightning.Response, err error) error {
+	return lightning.ErrForbidden
 }
 
 // Helper function to set default values

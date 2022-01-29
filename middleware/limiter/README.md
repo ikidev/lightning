@@ -30,8 +30,8 @@ First import the middleware from Fiber,
 
 ```go
 import (
-  "github.com/gofiber/fiber/v2"
-  "github.com/gofiber/fiber/v2/middleware/limiter"
+  "github.com/ikidev/lightning"
+  "github.com/ikidev/lightning/middleware/limiter"
 )
 ```
 

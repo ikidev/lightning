@@ -4,34 +4,34 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // New creates a new middleware handler
-func New(config Config) fiber.Handler {
+func New(config Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config)
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Get authorization header
-		auth := c.Get(fiber.HeaderAuthorization)
+		auth := req.Header.Get(lightning.HeaderAuthorization)
 
 		// Check if the header contains content besides "basic".
 		if len(auth) <= 6 || strings.ToLower(auth[:5]) != "basic" {
-			return cfg.Unauthorized(c)
+			return cfg.Unauthorized(req, res)
 		}
 
 		// Decode the header contents
 		raw, err := base64.StdEncoding.DecodeString(auth[6:])
 		if err != nil {
-			return cfg.Unauthorized(c)
+			return cfg.Unauthorized(req, res)
 		}
 
 		// Get the credentials
@@ -41,7 +41,7 @@ func New(config Config) fiber.Handler {
 		// which is "username:password".
 		index := strings.Index(creds, ":")
 		if index == -1 {
-			return cfg.Unauthorized(c)
+			return cfg.Unauthorized(req, res)
 		}
 
 		// Get the username and password
@@ -49,12 +49,12 @@ func New(config Config) fiber.Handler {
 		password := creds[index+1:]
 
 		if cfg.Authorizer(username, password) {
-			c.Locals(cfg.ContextUsername, username)
-			c.Locals(cfg.ContextPassword, password)
-			return c.Next()
+			req.Locals(cfg.ContextUsername, username)
+			req.Locals(cfg.ContextPassword, password)
+			return req.Next()
 		}
 
 		// Authentication failed
-		return cfg.Unauthorized(c)
+		return cfg.Unauthorized(req, res)
 	}
 }

@@ -1,49 +1,49 @@
 package encryptcookie
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 	"github.com/valyala/fasthttp"
 )
 
 // New creates a new middleware handler
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) lightning.Handler {
 	// Set default config
 	cfg := configDefault(config...)
 
 	// Return new handler
-	return func(c *fiber.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Decrypt request cookies
-		c.Request().Header.VisitAllCookie(func(key, value []byte) {
+		req.Ctx().Request().Header.VisitAllCookie(func(key, value []byte) {
 			keyString := string(key)
 			if !isDisabled(keyString, cfg.Except) {
 				decryptedValue, err := cfg.Decryptor(string(value), cfg.Key)
 				if err != nil {
-					c.Request().Header.SetCookieBytesKV(key, nil)
+					req.Ctx().Request().Header.SetCookieBytesKV(key, nil)
 				} else {
-					c.Request().Header.SetCookie(string(key), decryptedValue)
+					req.Ctx().Request().Header.SetCookie(string(key), decryptedValue)
 				}
 			}
 		})
 
 		// Continue stack
-		err := c.Next()
+		err := req.Next()
 
 		// Encrypt response cookies
-		c.Response().Header.VisitAllCookie(func(key, value []byte) {
+		req.Ctx().Response().Header.VisitAllCookie(func(key, value []byte) {
 			keyString := string(key)
 			if !isDisabled(keyString, cfg.Except) {
 				cookieValue := fasthttp.Cookie{}
 				cookieValue.SetKeyBytes(key)
-				if c.Response().Header.Cookie(&cookieValue) {
+				if req.Ctx().Response().Header.Cookie(&cookieValue) {
 					encryptedValue, err := cfg.Encryptor(string(cookieValue.Value()), cfg.Key)
 					if err == nil {
 						cookieValue.SetValue(encryptedValue)
-						c.Response().Header.SetCookie(&cookieValue)
+						req.Ctx().Response().Header.SetCookie(&cookieValue)
 					} else {
 						panic(err)
 					}

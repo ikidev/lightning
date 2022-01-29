@@ -1,4 +1,4 @@
-package fiber
+package lightning
 
 import (
 	"crypto/tls"

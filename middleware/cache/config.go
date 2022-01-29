@@ -1,11 +1,10 @@
 package cache
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/utils"
 )
 
 // Config defines the config for middleware.
@@ -13,7 +12,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// Expiration is the time that an cached response will live
 	//
@@ -37,23 +36,17 @@ type Config struct {
 	// Default: func(c *fiber.Ctx) string {
 	//   return utils.CopyString(c.Path())
 	// }
-	KeyGenerator func(*fiber.Ctx) string
+	KeyGenerator func(req *lightning.Request, res *lightning.Response) string
 
 	// allows you to generate custom Expiration Key By Key, default is Expiration (Optional)
 	//
 	// Default: nil
-	ExpirationGenerator func(*fiber.Ctx, *Config) time.Duration
+	ExpirationGenerator func(*lightning.Request, *lightning.Response, *Config) time.Duration
 
 	// Store is used to store the state of the middleware
 	//
 	// Default: an in memory store for this process only
-	Storage fiber.Storage
-
-	// Deprecated, use Storage instead
-	Store fiber.Storage
-
-	// Deprecated, use KeyGenerator instead
-	Key func(*fiber.Ctx) string
+	Storage lightning.Storage
 }
 
 // ConfigDefault is the default config
@@ -62,8 +55,8 @@ var ConfigDefault = Config{
 	Expiration:   1 * time.Minute,
 	CacheHeader:  "X-Cache",
 	CacheControl: false,
-	KeyGenerator: func(c *fiber.Ctx) string {
-		return utils.CopyString(c.Path())
+	KeyGenerator: func(req *lightning.Request, res *lightning.Response) string {
+		return utils.CopyString(req.Path())
 	},
 	ExpirationGenerator: nil,
 	Storage:             nil,
@@ -79,15 +72,6 @@ func configDefault(config ...Config) Config {
 	// Override default config
 	cfg := config[0]
 
-	// Set default values
-	if cfg.Store != nil {
-		fmt.Println("[CACHE] Store is deprecated, please use Storage")
-		cfg.Storage = cfg.Store
-	}
-	if cfg.Key != nil {
-		fmt.Println("[CACHE] Key is deprecated, please use KeyGenerator")
-		cfg.KeyGenerator = cfg.Key
-	}
 	if cfg.Next == nil {
 		cfg.Next = ConfigDefault.Next
 	}

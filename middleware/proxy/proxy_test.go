@@ -9,18 +9,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/internal/tlstest"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/ikidev/lightning"
+	"github.com/ikidev/lightning/internal/tlstest"
+	"github.com/ikidev/lightning/utils"
 )
 
-func createProxyTestServer(handler fiber.Handler, t *testing.T) (*fiber.App, string) {
+func createProxyTestServer(handler lightning.Handler, t *testing.T) (*lightning.App, string) {
 	t.Helper()
 
-	target := fiber.New(fiber.Config{DisableStartupMessage: true})
+	target := lightning.New(lightning.Config{DisableStartupMessage: true})
 	target.Get("/", handler)
 
-	ln, err := net.Listen(fiber.NetworkTCP4, "127.0.0.1:0")
+	ln, err := net.Listen(lightning.NetworkTCP4, "127.0.0.1:0")
 	utils.AssertEqual(t, nil, err)
 
 	go func() {
@@ -42,7 +42,7 @@ func Test_Proxy_Empty_Upstream_Servers(t *testing.T) {
 			utils.AssertEqual(t, "Servers cannot be empty", r)
 		}
 	}()
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{Servers: []string{}}))
 }
 
@@ -50,17 +50,17 @@ func Test_Proxy_Empty_Upstream_Servers(t *testing.T) {
 func Test_Proxy_Next(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{"127.0.0.1"},
-		Next: func(_ *fiber.Ctx) bool {
+		Next: func(_ *lightning.Ctx) bool {
 			return true
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusNotFound, resp.StatusCode)
 }
 
 // go test -run Test_Proxy
@@ -68,14 +68,14 @@ func Test_Proxy(t *testing.T) {
 	t.Parallel()
 
 	target, addr := createProxyTestServer(
-		func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusTeapot) }, t,
+		func(c *lightning.Ctx) error { return c.SendStatus(lightning.StatusTeapot) }, t,
 	)
 
 	resp, err := target.Test(httptest.NewRequest("GET", "/", nil), 2000)
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusTeapot, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusTeapot, resp.StatusCode)
 
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
 	app.Use(Balancer(Config{Servers: []string{addr}}))
 
@@ -83,7 +83,7 @@ func Test_Proxy(t *testing.T) {
 	req.Host = addr
 	resp, err = app.Test(req)
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusTeapot, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusTeapot, resp.StatusCode)
 }
 
 // go test -run Test_Proxy_Balancer_WithTlsConfig
@@ -93,14 +93,14 @@ func Test_Proxy_Balancer_WithTlsConfig(t *testing.T) {
 	serverTLSConf, _, err := tlstest.GetTLSConfigs()
 	utils.AssertEqual(t, nil, err)
 
-	ln, err := net.Listen(fiber.NetworkTCP4, "127.0.0.1:0")
+	ln, err := net.Listen(lightning.NetworkTCP4, "127.0.0.1:0")
 	utils.AssertEqual(t, nil, err)
 
 	ln = tls.NewListener(ln, serverTLSConf)
 
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
-	app.Get("/tlsbalaner", func(c *fiber.Ctx) error {
+	app.Get("/tlsbalaner", func(c *lightning.Ctx) error {
 		return c.SendString("tls balancer")
 	})
 
@@ -115,10 +115,10 @@ func Test_Proxy_Balancer_WithTlsConfig(t *testing.T) {
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
 
-	code, body, errs := fiber.Get("https://" + addr + "/tlsbalaner").TLSConfig(clientTLSConf).String()
+	code, body, errs := lightning.Get("https://" + addr + "/tlsbalaner").TLSConfig(clientTLSConf).String()
 
 	utils.AssertEqual(t, 0, len(errs))
-	utils.AssertEqual(t, fiber.StatusOK, code)
+	utils.AssertEqual(t, lightning.StatusOK, code)
 	utils.AssertEqual(t, "tls balancer", body)
 }
 
@@ -126,17 +126,17 @@ func Test_Proxy_Balancer_WithTlsConfig(t *testing.T) {
 func Test_Proxy_Forward(t *testing.T) {
 	t.Parallel()
 
-	app := fiber.New()
+	app := lightning.New()
 
 	_, addr := createProxyTestServer(
-		func(c *fiber.Ctx) error { return c.SendString("forwarded") }, t,
+		func(c *lightning.Ctx) error { return c.SendString("forwarded") }, t,
 	)
 
 	app.Use(Forward("http://" + addr))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -150,14 +150,14 @@ func Test_Proxy_Forward_WithTlsConfig(t *testing.T) {
 	serverTLSConf, _, err := tlstest.GetTLSConfigs()
 	utils.AssertEqual(t, nil, err)
 
-	ln, err := net.Listen(fiber.NetworkTCP4, "127.0.0.1:0")
+	ln, err := net.Listen(lightning.NetworkTCP4, "127.0.0.1:0")
 	utils.AssertEqual(t, nil, err)
 
 	ln = tls.NewListener(ln, serverTLSConf)
 
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
-	app.Get("/tlsfwd", func(c *fiber.Ctx) error {
+	app.Get("/tlsfwd", func(c *lightning.Ctx) error {
 		return c.SendString("tls forward")
 	})
 
@@ -170,10 +170,10 @@ func Test_Proxy_Forward_WithTlsConfig(t *testing.T) {
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
 
-	code, body, errs := fiber.Get("https://" + addr).TLSConfig(clientTLSConf).String()
+	code, body, errs := lightning.Get("https://" + addr).TLSConfig(clientTLSConf).String()
 
 	utils.AssertEqual(t, 0, len(errs))
-	utils.AssertEqual(t, fiber.StatusOK, code)
+	utils.AssertEqual(t, lightning.StatusOK, code)
 	utils.AssertEqual(t, "tls forward", body)
 }
 
@@ -181,22 +181,22 @@ func Test_Proxy_Forward_WithTlsConfig(t *testing.T) {
 func Test_Proxy_Modify_Response(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *fiber.Ctx) error {
+	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
 		return c.Status(500).SendString("not modified")
 	}, t)
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
-		ModifyResponse: func(c *fiber.Ctx) error {
-			c.Response().SetStatusCode(fiber.StatusOK)
+		ModifyResponse: func(c *lightning.Ctx) error {
+			c.Response().SetStatusCode(lightning.StatusOK)
 			return c.SendString("modified response")
 		},
 	}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -207,15 +207,15 @@ func Test_Proxy_Modify_Response(t *testing.T) {
 func Test_Proxy_Modify_Request(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *fiber.Ctx) error {
+	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
 		b := c.Request().Body()
 		return c.SendString(string(b))
 	}, t)
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
-		ModifyRequest: func(c *fiber.Ctx) error {
+		ModifyRequest: func(c *lightning.Ctx) error {
 			c.Request().SetBody([]byte("modified request"))
 			return nil
 		},
@@ -223,7 +223,7 @@ func Test_Proxy_Modify_Request(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -234,12 +234,12 @@ func Test_Proxy_Modify_Request(t *testing.T) {
 func Test_Proxy_Timeout_Slow_Server(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *fiber.Ctx) error {
+	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
 		time.Sleep(2 * time.Second)
 		return c.SendString("fiber is awesome")
 	}, t)
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
 		Timeout: 3 * time.Second,
@@ -247,7 +247,7 @@ func Test_Proxy_Timeout_Slow_Server(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil), 5000)
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -258,12 +258,12 @@ func Test_Proxy_Timeout_Slow_Server(t *testing.T) {
 func Test_Proxy_With_Timeout(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *fiber.Ctx) error {
+	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
 		time.Sleep(1 * time.Second)
 		return c.SendString("fiber is awesome")
 	}, t)
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
 		Timeout: 100 * time.Millisecond,
@@ -271,7 +271,7 @@ func Test_Proxy_With_Timeout(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil), 2000)
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusInternalServerError, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusInternalServerError, resp.StatusCode)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	utils.AssertEqual(t, nil, err)
@@ -282,20 +282,20 @@ func Test_Proxy_With_Timeout(t *testing.T) {
 func Test_Proxy_Buffer_Size_Response(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *fiber.Ctx) error {
+	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
 		long := strings.Join(make([]string, 5000), "-")
 		c.Set("Very-Long-Header", long)
 		return c.SendString("ok")
 	}, t)
 
-	app := fiber.New()
+	app := lightning.New()
 	app.Use(Balancer(Config{Servers: []string{addr}}))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusInternalServerError, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusInternalServerError, resp.StatusCode)
 
-	app = fiber.New()
+	app = lightning.New()
 	app.Use(Balancer(Config{
 		Servers:        []string{addr},
 		ReadBufferSize: 1024 * 8,
@@ -303,5 +303,5 @@ func Test_Proxy_Buffer_Size_Response(t *testing.T) {
 
 	resp, err = app.Test(httptest.NewRequest("GET", "/", nil))
 	utils.AssertEqual(t, nil, err)
-	utils.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	utils.AssertEqual(t, lightning.StatusOK, resp.StatusCode)
 }

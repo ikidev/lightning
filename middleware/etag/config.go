@@ -1,7 +1,7 @@
 package etag
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/ikidev/lightning"
 )
 
 // Config defines the config for middleware.
@@ -19,7 +19,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *fiber.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 }
 
 // ConfigDefault is the default config
