@@ -21,8 +21,8 @@ type Group struct {
 // Mount attaches another app instance as a sub-router along a routing path.
 // It's very useful to split up a large API as many independent routers and
 // compose them as a single service using Mount.
-func (grp *Group) Mount(prefix string, fiber *App) Router {
-	stack := fiber.Stack()
+func (grp *Group) Mount(prefix string, lighting *App) Router {
+	stack := lighting.Stack()
 	groupPath := getGroupPath(grp.prefix, prefix)
 
 	for m := range stack {
@@ -34,14 +34,14 @@ func (grp *Group) Mount(prefix string, fiber *App) Router {
 
 	// Save the fiber's error handler and its sub apps
 	groupPath = strings.TrimRight(groupPath, "/")
-	if fiber.config.ErrorHandler != nil {
-		grp.app.errorHandlers[groupPath] = fiber.config.ErrorHandler
+	if lighting.config.ErrorHandler != nil {
+		grp.app.errorHandlers[groupPath] = lighting.config.ErrorHandler
 	}
-	for mountedPrefixes, errHandler := range fiber.errorHandlers {
+	for mountedPrefixes, errHandler := range lighting.errorHandlers {
 		grp.app.errorHandlers[groupPath+mountedPrefixes] = errHandler
 	}
 
-	atomic.AddUint32(&grp.app.handlersCount, fiber.handlersCount)
+	atomic.AddUint32(&grp.app.handlersCount, lighting.handlersCount)
 
 	return grp
 }

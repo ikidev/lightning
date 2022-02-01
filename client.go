@@ -970,7 +970,7 @@ func ReleaseFormFile(ff *FormFile) {
 var (
 	strHTTP          = []byte("http")
 	strHTTPS         = []byte("https")
-	defaultUserAgent = "fiber"
+	defaultUserAgent = "lighting"
 )
 
 type multipartWriter interface {

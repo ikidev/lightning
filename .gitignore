@@ -19,6 +19,7 @@
 
 # Misc
 *.fiber.gz
+*.light.gz
 *.fasthttp.gz
 *.pprof
 *.workspace

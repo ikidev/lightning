@@ -868,7 +868,7 @@ func Test_Client_Debug(t *testing.T) {
 
 	utils.AssertEqual(t, true, strings.Contains(str, "Connected to example.com(pipe)"))
 	utils.AssertEqual(t, true, strings.Contains(str, "GET / HTTP/1.1"))
-	utils.AssertEqual(t, true, strings.Contains(str, "User-Agent: fiber"))
+	utils.AssertEqual(t, true, strings.Contains(str, "User-Agent: lighting"))
 	utils.AssertEqual(t, true, strings.Contains(str, "Host: example.com\r\n\r\n"))
 	utils.AssertEqual(t, true, strings.Contains(str, "HTTP/1.1 200 OK"))
 	utils.AssertEqual(t, true, strings.Contains(str, "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 5\r\n\r\ndebug"))

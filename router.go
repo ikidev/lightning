@@ -38,7 +38,7 @@ type Router interface {
 
 	Route(prefix string, fn func(router Router), name ...string) Router
 
-	Mount(prefix string, fiber *App) Router
+	Mount(prefix string, lighting *App) Router
 
 	Name(name string) Router
 }

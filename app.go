@@ -415,7 +415,7 @@ const (
 	DefaultConcurrency          = 256 * 1024
 	DefaultReadBufferSize       = 4096
 	DefaultWriteBufferSize      = 4096
-	DefaultCompressedFileSuffix = ".fiber.gz"
+	DefaultCompressedFileSuffix = ".light.gz"
 )
 
 // Variables for Name & GetRoute
@@ -538,8 +538,8 @@ func (app *App) handleTrustedProxy(ipAddress string) {
 // compose them as a single service using Mount. The fiber's error handler and
 // any of the fiber's sub apps are added to the application's error handlers
 // to be invoked on errors that happen within the prefix route.
-func (app *App) Mount(prefix string, fiber *App) Router {
-	stack := fiber.Stack()
+func (app *App) Mount(prefix string, lighting *App) Router {
+	stack := lighting.Stack()
 	for m := range stack {
 		for r := range stack[m] {
 			route := app.copyRoute(stack[m][r])
@@ -549,14 +549,14 @@ func (app *App) Mount(prefix string, fiber *App) Router {
 
 	// Save the fiber's error handler and its sub apps
 	prefix = strings.TrimRight(prefix, "/")
-	if fiber.config.ErrorHandler != nil {
-		app.errorHandlers[prefix] = fiber.config.ErrorHandler
+	if lighting.config.ErrorHandler != nil {
+		app.errorHandlers[prefix] = lighting.config.ErrorHandler
 	}
-	for mountedPrefixes, errHandler := range fiber.errorHandlers {
+	for mountedPrefixes, errHandler := range lighting.errorHandlers {
 		app.errorHandlers[prefix+mountedPrefixes] = errHandler
 	}
 
-	atomic.AddUint32(&app.handlersCount, fiber.handlersCount)
+	atomic.AddUint32(&app.handlersCount, lighting.handlersCount)
 
 	return app
 }
