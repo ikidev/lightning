@@ -96,7 +96,7 @@ func Test_Monitor_Next(t *testing.T) {
 	app := lightning.New()
 
 	app.Use("/", New(Config{
-		Next: func(_ *lightning.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))

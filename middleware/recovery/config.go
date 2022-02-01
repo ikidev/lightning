@@ -1,4 +1,4 @@
-package recover
+package recovery
 
 import (
 	"github.com/ikidev/lightning"
@@ -9,7 +9,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *lightning.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// EnableStackTrace enables handling stack trace
 	//
@@ -19,7 +19,7 @@ type Config struct {
 	// StackTraceHandler defines a function to handle stack trace
 	//
 	// Optional. Default: defaultStackTraceHandler
-	StackTraceHandler func(c *lightning.Ctx, e interface{})
+	StackTraceHandler func(e interface{})
 }
 
 var defaultStackTraceBufLen = 1024

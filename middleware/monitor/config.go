@@ -12,7 +12,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *lightning.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 }
 
 var ConfigDefault = Config{

@@ -22,6 +22,10 @@ func (req *Request) Route() *Route {
 	return req.ctx.Route()
 }
 
+func (req *Request) FastHTTPRequest() *fasthttp.Request {
+	return req.ctx.Request()
+}
+
 func (req *Request) IP() string {
 	return req.ctx.IP()
 }
@@ -39,6 +43,10 @@ func (req *Request) IPs() []string {
 
 func (req *Request) Ctx() *Ctx {
 	return req.ctx
+}
+
+func (req *Request) FastHTTPContext() *fasthttp.RequestCtx {
+	return req.ctx.Context()
 }
 
 func (req *Request) Hostname() string {

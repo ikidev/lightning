@@ -22,6 +22,10 @@ func (hm *HeaderMap) ContentType() string {
 	return string(hm.ctx.Request().Header.ContentType())
 }
 
+func (hm *HeaderMap) SetContentType(contentType string) {
+	hm.ctx.Response().Header.SetContentType(contentType)
+}
+
 func (hm *HeaderMap) All() map[string]string {
 	return hm.Map
 }

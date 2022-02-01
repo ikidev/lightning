@@ -15,8 +15,8 @@ func Test_Non_Pprof_Path(t *testing.T) {
 
 	app.Use(New())
 
-	app.Get("/", func(c *lightning.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
 	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/", nil))
@@ -33,8 +33,8 @@ func Test_Pprof_Index(t *testing.T) {
 
 	app.Use(New())
 
-	app.Get("/", func(c *lightning.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
 	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/debug/pprof/", nil))
@@ -52,8 +52,8 @@ func Test_Pprof_Subs(t *testing.T) {
 
 	app.Use(New())
 
-	app.Get("/", func(c *lightning.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
 	subs := []string{
@@ -79,8 +79,8 @@ func Test_Pprof_Other(t *testing.T) {
 
 	app.Use(New())
 
-	app.Get("/", func(c *lightning.Ctx) error {
-		return c.SendString("escaped")
+	app.Get("/", func(_ *lightning.Request, res *lightning.Response) error {
+		return res.String("escaped")
 	})
 
 	resp, err := app.Test(httptest.NewRequest(lightning.MethodGet, "/debug/pprof/302", nil))

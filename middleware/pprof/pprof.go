@@ -26,36 +26,36 @@ var (
 // New creates a new middleware handler
 func New() lightning.Handler {
 	// Return new handler
-	return func(c *lightning.Ctx) error {
-		path := c.Path()
+	return func(req *lightning.Request, res *lightning.Response) error {
+		path := req.Path()
 		// We are only interested in /debug/pprof routes
 		if len(path) < 12 || !strings.HasPrefix(path, "/debug/pprof") {
-			return c.Next()
+			return req.Next()
 		}
 		// Switch to original path without stripped slashes
 		switch path {
 		case "/debug/pprof/":
-			pprofIndex(c.Context())
+			pprofIndex(req.FastHTTPContext())
 		case "/debug/pprof/cmdline":
-			pprofCmdline(c.Context())
+			pprofCmdline(req.FastHTTPContext())
 		case "/debug/pprof/profile":
-			pprofProfile(c.Context())
+			pprofProfile(req.FastHTTPContext())
 		case "/debug/pprof/symbol":
-			pprofSymbol(c.Context())
+			pprofSymbol(req.FastHTTPContext())
 		case "/debug/pprof/trace":
-			pprofTrace(c.Context())
+			pprofTrace(req.FastHTTPContext())
 		case "/debug/pprof/allocs":
-			pprofAllocs(c.Context())
+			pprofAllocs(req.FastHTTPContext())
 		case "/debug/pprof/block":
-			pprofBlock(c.Context())
+			pprofBlock(req.FastHTTPContext())
 		case "/debug/pprof/goroutine":
-			pprofGoroutine(c.Context())
+			pprofGoroutine(req.FastHTTPContext())
 		case "/debug/pprof/heap":
-			pprofHeap(c.Context())
+			pprofHeap(req.FastHTTPContext())
 		case "/debug/pprof/mutex":
-			pprofMutex(c.Context())
+			pprofMutex(req.FastHTTPContext())
 		case "/debug/pprof/threadcreate":
-			pprofThreadcreate(c.Context())
+			pprofThreadcreate(req.FastHTTPContext())
 		default:
 			// pprof index only works with trailing slash
 			if strings.HasSuffix(path, "/") {
@@ -64,7 +64,7 @@ func New() lightning.Handler {
 				path = "/debug/pprof/"
 			}
 
-			return c.Redirect(path, lightning.StatusFound)
+			return req.Redirect(path, lightning.StatusFound)
 		}
 		return nil
 	}

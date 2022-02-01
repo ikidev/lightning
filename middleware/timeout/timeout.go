@@ -21,14 +21,14 @@ func New(handler lightning.Handler, timeout time.Duration) lightning.Handler {
 	}
 
 	// logic is from fasthttp.TimeoutWithCodeHandler https://github.com/valyala/fasthttp/blob/master/server.go#L418
-	return func(ctx *lightning.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		ch := make(chan struct{}, 1)
 
 		go func() {
 			defer func() {
 				_ = recover()
 			}()
-			_ = handler(ctx)
+			_ = handler(req, res)
 			ch <- struct{}{}
 		}()
 

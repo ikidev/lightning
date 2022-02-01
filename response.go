@@ -27,6 +27,10 @@ func (res *Response) Status(status int) *Response {
 	return res
 }
 
+func (res *Response) FastHTTPResponse() *fasthttp.Response {
+	return res.ctx.Response()
+}
+
 // Append appends p into response body.
 func (res *Response) Append(p []byte) (int, error) {
 	res.ctx.fasthttp.Response.AppendBody(p)

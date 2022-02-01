@@ -72,16 +72,16 @@ func New(config ...Config) lightning.Handler {
 	})
 
 	// Return new handler
-	return func(c *lightning.Ctx) error {
+	return func(req *lightning.Request, res *lightning.Response) error {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
-		if c.Method() != lightning.MethodGet {
+		if req.Method() != lightning.MethodGet {
 			return lightning.ErrMethodNotAllowed
 		}
-		if c.Get(lightning.HeaderAccept) == lightning.MIMEApplicationJSON || cfg.APIOnly {
+		if req.Header.Get(lightning.HeaderAccept) == lightning.MIMEApplicationJSON || cfg.APIOnly {
 			mutex.Lock()
 			data.PID.CPU = monitPidCpu.Load().(float64)
 			data.PID.RAM = monitPidRam.Load().(uint64)
@@ -93,10 +93,10 @@ func New(config ...Config) lightning.Handler {
 			data.OS.LoadAvg = monitOsLoadAvg.Load().(float64)
 			data.OS.Conns = monitOsConns.Load().(int)
 			mutex.Unlock()
-			return c.Status(lightning.StatusOK).JSON(data)
+			return res.Status(lightning.StatusOK).JSON(data)
 		}
-		c.Response().Header.SetContentType(lightning.MIMETextHTMLCharsetUTF8)
-		return c.Status(lightning.StatusOK).Send(index)
+		res.Header.SetContentType(lightning.MIMETextHTMLCharsetUTF8)
+		return res.Status(lightning.StatusOK).Bytes(index)
 	}
 }
 

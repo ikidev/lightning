@@ -27,11 +27,14 @@ func Balancer(config Config) lightning.Handler {
 	// Set timeout
 	lbc.Timeout = cfg.Timeout
 
-	// Scheme must be provided, falls back to http
-	// TODO add https support
+	// Scheme must be provided, falls back to http/https
 	for _, server := range cfg.Servers {
 		if !strings.HasPrefix(server, "http") {
 			server = "http://" + server
+			if cfg.SupportsHTTPS {
+				server = "https://" + server
+			}
+
 		}
 
 		u, err := url.Parse(server)
@@ -54,39 +57,39 @@ func Balancer(config Config) lightning.Handler {
 	}
 
 	// Return new handler
-	return func(c *lightning.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
-		// Set request and response
-		req := c.Request()
-		res := c.Response()
+		// Set request and response (FastHTTP request/response)
+		fReq := req.FastHTTPRequest()
+		fRes := res.FastHTTPResponse()
 
 		// Don't proxy "Connection" header
-		req.Header.Del(lightning.HeaderConnection)
+		fReq.Header.Del(lightning.HeaderConnection)
 
 		// Modify request
 		if cfg.ModifyRequest != nil {
-			if err = cfg.ModifyRequest(c); err != nil {
+			if err = cfg.ModifyRequest(req, res); err != nil {
 				return err
 			}
 		}
 
-		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
+		fReq.SetRequestURI(utils.UnsafeString(fReq.RequestURI()))
 
 		// Forward request
-		if err = lbc.Do(req, res); err != nil {
+		if err = lbc.Do(fReq, fRes); err != nil {
 			return err
 		}
 
 		// Don't proxy "Connection" header
-		res.Header.Del(lightning.HeaderConnection)
+		fRes.Header.Del(lightning.HeaderConnection)
 
 		// Modify response
 		if cfg.ModifyResponse != nil {
-			if err = cfg.ModifyResponse(c); err != nil {
+			if err = cfg.ModifyResponse(req, res); err != nil {
 				return err
 			}
 		}
@@ -110,21 +113,19 @@ func WithTlsConfig(tlsConfig *tls.Config) {
 // Forward performs the given http request and fills the given http response.
 // This method will return an fiber.Handler
 func Forward(addr string) lightning.Handler {
-	return func(c *lightning.Ctx) error {
-		return Do(c, addr)
+	return func(req *lightning.Request, res *lightning.Response) error {
+		return Do(req, res, addr)
 	}
 }
 
 // Do performs the given http request and fills the given http response.
 // This method can be used within a fiber.Handler
-func Do(c *lightning.Ctx, addr string) error {
-	req := c.Request()
-	res := c.Response()
-	req.SetRequestURI(addr)
-	req.Header.Del(lightning.HeaderConnection)
-	if err := client.Do(req, res); err != nil {
+func Do(req *lightning.Request, res *lightning.Response, addr string) error {
+	req.FastHTTPRequest().SetRequestURI(addr)
+	req.FastHTTPRequest().Header.Del(lightning.HeaderConnection)
+	if err := client.Do(req.FastHTTPRequest(), res.FastHTTPResponse()); err != nil {
 		return err
 	}
-	res.Header.Del(lightning.HeaderConnection)
+	res.FastHTTPResponse().Header.Del(lightning.HeaderConnection)
 	return nil
 }

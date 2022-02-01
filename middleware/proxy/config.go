@@ -13,7 +13,7 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	//
 	// Optional. Default: nil
-	Next func(c *lightning.Ctx) bool
+	Next func(req *lightning.Request, res *lightning.Response) bool
 
 	// Servers defines a list of <scheme>://<host> HTTP servers,
 	//
@@ -49,6 +49,9 @@ type Config struct {
 
 	// tls config for the http client
 	TlsConfig *tls.Config
+
+	// helps the proxy to know if a proxy ip supports https
+	SupportsHTTPS bool
 }
 
 // ConfigDefault is the default config
@@ -56,6 +59,7 @@ var ConfigDefault = Config{
 	Next:           nil,
 	ModifyRequest:  nil,
 	ModifyResponse: nil,
+	SupportsHTTPS:  false,
 	Timeout:        fasthttp.DefaultLBClientTimeout,
 }
 

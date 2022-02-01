@@ -13,7 +13,7 @@ import (
 func Test_Skip(t *testing.T) {
 	app := lightning.New()
 
-	app.Use(skip.New(errTeapotHandler, func(*lightning.Ctx) bool { return true }))
+	app.Use(skip.New(errTeapotHandler, func(req *lightning.Request, res *lightning.Response) bool { return true }))
 	app.Get("/", helloWorldHandler)
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -25,7 +25,7 @@ func Test_Skip(t *testing.T) {
 func Test_SkipFalse(t *testing.T) {
 	app := lightning.New()
 
-	app.Use(skip.New(errTeapotHandler, func(*lightning.Ctx) bool { return false }))
+	app.Use(skip.New(errTeapotHandler, func(req *lightning.Request, res *lightning.Response) bool { return false }))
 	app.Get("/", helloWorldHandler)
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
@@ -45,10 +45,10 @@ func Test_SkipNilFunc(t *testing.T) {
 	utils.AssertEqual(t, lightning.StatusTeapot, resp.StatusCode)
 }
 
-func helloWorldHandler(c *lightning.Ctx) error {
-	return c.SendString("Hello, World 👋!")
+func helloWorldHandler(req *lightning.Request, res *lightning.Response) error {
+	return res.String("Hello, World 👋!")
 }
 
-func errTeapotHandler(*lightning.Ctx) error {
+func errTeapotHandler(req *lightning.Request, res *lightning.Response) error {
 	return lightning.ErrTeapot
 }

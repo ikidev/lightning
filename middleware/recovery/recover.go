@@ -1,4 +1,4 @@
-package recover
+package recovery
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/ikidev/lightning"
 )
 
-func defaultStackTraceHandler(c *lightning.Ctx, e interface{}) {
+func defaultStackTraceHandler(e interface{}) {
 	buf := make([]byte, defaultStackTraceBufLen)
 	buf = buf[:runtime.Stack(buf, false)]
 	_, _ = os.Stderr.WriteString(fmt.Sprintf("panic: %v\n%s\n", e, buf))
@@ -20,17 +20,17 @@ func New(config ...Config) lightning.Handler {
 	cfg := configDefault(config...)
 
 	// Return new handler
-	return func(c *lightning.Ctx) (err error) {
+	return func(req *lightning.Request, res *lightning.Response) (err error) {
 		// Don't execute middleware if Next returns true
-		if cfg.Next != nil && cfg.Next(c) {
-			return c.Next()
+		if cfg.Next != nil && cfg.Next(req, res) {
+			return req.Next()
 		}
 
 		// Catch panics
 		defer func() {
 			if r := recover(); r != nil {
 				if cfg.EnableStackTrace {
-					cfg.StackTraceHandler(c, r)
+					cfg.StackTraceHandler(r)
 				}
 
 				var ok bool
@@ -42,6 +42,6 @@ func New(config ...Config) lightning.Handler {
 		}()
 
 		// Return err if exist, else move to next handler
-		return c.Next()
+		return req.Next()
 	}
 }

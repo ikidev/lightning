@@ -53,7 +53,7 @@ func Test_Proxy_Next(t *testing.T) {
 	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{"127.0.0.1"},
-		Next: func(_ *lightning.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
@@ -68,7 +68,9 @@ func Test_Proxy(t *testing.T) {
 	t.Parallel()
 
 	target, addr := createProxyTestServer(
-		func(c *lightning.Ctx) error { return c.SendStatus(lightning.StatusTeapot) }, t,
+		func(req *lightning.Request, res *lightning.Response) error {
+			return res.Status(lightning.StatusTeapot).Send()
+		}, t,
 	)
 
 	resp, err := target.Test(httptest.NewRequest("GET", "/", nil), 2000)
@@ -100,8 +102,8 @@ func Test_Proxy_Balancer_WithTlsConfig(t *testing.T) {
 
 	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
-	app.Get("/tlsbalaner", func(c *lightning.Ctx) error {
-		return c.SendString("tls balancer")
+	app.Get("/tls_balancer", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("tls balancer")
 	})
 
 	addr := ln.Addr().String()
@@ -115,7 +117,7 @@ func Test_Proxy_Balancer_WithTlsConfig(t *testing.T) {
 
 	go func() { utils.AssertEqual(t, nil, app.Listener(ln)) }()
 
-	code, body, errs := lightning.Get("https://" + addr + "/tlsbalaner").TLSConfig(clientTLSConf).String()
+	code, body, errs := lightning.Get("https://" + addr + "/tls_balancer").TLSConfig(clientTLSConf).String()
 
 	utils.AssertEqual(t, 0, len(errs))
 	utils.AssertEqual(t, lightning.StatusOK, code)
@@ -129,7 +131,7 @@ func Test_Proxy_Forward(t *testing.T) {
 	app := lightning.New()
 
 	_, addr := createProxyTestServer(
-		func(c *lightning.Ctx) error { return c.SendString("forwarded") }, t,
+		func(req *lightning.Request, res *lightning.Response) error { return res.String("forwarded") }, t,
 	)
 
 	app.Use(Forward("http://" + addr))
@@ -157,8 +159,8 @@ func Test_Proxy_Forward_WithTlsConfig(t *testing.T) {
 
 	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
-	app.Get("/tlsfwd", func(c *lightning.Ctx) error {
-		return c.SendString("tls forward")
+	app.Get("/tlsfwd", func(req *lightning.Request, res *lightning.Response) error {
+		return res.String("tls forward")
 	})
 
 	addr := ln.Addr().String()
@@ -181,16 +183,16 @@ func Test_Proxy_Forward_WithTlsConfig(t *testing.T) {
 func Test_Proxy_Modify_Response(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
-		return c.Status(500).SendString("not modified")
+	_, addr := createProxyTestServer(func(req *lightning.Request, res *lightning.Response) error {
+		return res.Status(500).String("not modified")
 	}, t)
 
 	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
-		ModifyResponse: func(c *lightning.Ctx) error {
-			c.Response().SetStatusCode(lightning.StatusOK)
-			return c.SendString("modified response")
+		ModifyResponse: func(req *lightning.Request, res *lightning.Response) error {
+			res.Status(lightning.StatusOK)
+			return res.String("modified response")
 		},
 	}))
 
@@ -207,16 +209,16 @@ func Test_Proxy_Modify_Response(t *testing.T) {
 func Test_Proxy_Modify_Request(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
-		b := c.Request().Body()
-		return c.SendString(string(b))
+	_, addr := createProxyTestServer(func(req *lightning.Request, res *lightning.Response) error {
+		b := req.FastHTTPRequest().Body()
+		return res.String(string(b))
 	}, t)
 
 	app := lightning.New()
 	app.Use(Balancer(Config{
 		Servers: []string{addr},
-		ModifyRequest: func(c *lightning.Ctx) error {
-			c.Request().SetBody([]byte("modified request"))
+		ModifyRequest: func(req *lightning.Request, res *lightning.Response) error {
+			req.FastHTTPRequest().SetBody([]byte("modified request"))
 			return nil
 		},
 	}))
@@ -234,9 +236,9 @@ func Test_Proxy_Modify_Request(t *testing.T) {
 func Test_Proxy_Timeout_Slow_Server(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
+	_, addr := createProxyTestServer(func(req *lightning.Request, res *lightning.Response) error {
 		time.Sleep(2 * time.Second)
-		return c.SendString("fiber is awesome")
+		return res.String("fiber is awesome")
 	}, t)
 
 	app := lightning.New()
@@ -258,9 +260,9 @@ func Test_Proxy_Timeout_Slow_Server(t *testing.T) {
 func Test_Proxy_With_Timeout(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
+	_, addr := createProxyTestServer(func(req *lightning.Request, res *lightning.Response) error {
 		time.Sleep(1 * time.Second)
-		return c.SendString("fiber is awesome")
+		return res.String("fiber is awesome")
 	}, t)
 
 	app := lightning.New()
@@ -282,10 +284,10 @@ func Test_Proxy_With_Timeout(t *testing.T) {
 func Test_Proxy_Buffer_Size_Response(t *testing.T) {
 	t.Parallel()
 
-	_, addr := createProxyTestServer(func(c *lightning.Ctx) error {
+	_, addr := createProxyTestServer(func(req *lightning.Request, res *lightning.Response) error {
 		long := strings.Join(make([]string, 5000), "-")
-		c.Set("Very-Long-Header", long)
-		return c.SendString("ok")
+		res.Header.Set("Very-Long-Header", long)
+		return res.String("ok")
 	}, t)
 
 	app := lightning.New()

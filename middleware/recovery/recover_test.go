@@ -1,4 +1,4 @@
-package recover
+package recovery
 
 import (
 	"net/http/httptest"
@@ -11,15 +11,15 @@ import (
 // go test -run Test_Recover
 func Test_Recover(t *testing.T) {
 	app := lightning.New(lightning.Config{
-		ErrorHandler: func(c *lightning.Ctx, err error) error {
+		ErrorHandler: func(req *lightning.Request, res *lightning.Response, err error) error {
 			utils.AssertEqual(t, "Hi, I'm an error!", err.Error())
-			return c.SendStatus(lightning.StatusTeapot)
+			return res.Status(lightning.StatusTeapot).Send()
 		},
 	})
 
 	app.Use(New())
 
-	app.Get("/panic", func(c *lightning.Ctx) error {
+	app.Get("/panic", func(_ *lightning.Request, _ *lightning.Response) error {
 		panic("Hi, I'm an error!")
 	})
 
@@ -32,7 +32,7 @@ func Test_Recover(t *testing.T) {
 func Test_Recover_Next(t *testing.T) {
 	app := lightning.New()
 	app.Use(New(Config{
-		Next: func(_ *lightning.Ctx) bool {
+		Next: func(_ *lightning.Request, _ *lightning.Response) bool {
 			return true
 		},
 	}))
@@ -48,7 +48,7 @@ func Test_Recover_EnableStackTrace(t *testing.T) {
 		EnableStackTrace: true,
 	}))
 
-	app.Get("/panic", func(c *lightning.Ctx) error {
+	app.Get("/panic", func(_ *lightning.Request, _ *lightning.Response) error {
 		panic("Hi, I'm an error!")
 	})
 
