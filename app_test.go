@@ -307,18 +307,18 @@ func Test_App_Use_Params(t *testing.T) {
 	app := New()
 
 	app.Use("/prefix/:param", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "john", req.UrlParam("param"))
+		utils.AssertEqual(t, "john", req.Param("param"))
 		return nil
 	})
 
 	app.Use("/foo/:bar?", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "foobar", req.UrlParam("bar", "foobar"))
+		utils.AssertEqual(t, "foobar", req.Param("bar", "foobar"))
 		return nil
 	})
 
 	app.Use("/:param/*", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "john", req.UrlParam("param"))
-		utils.AssertEqual(t, "doe", req.UrlParam("*"))
+		utils.AssertEqual(t, "john", req.Param("param"))
+		utils.AssertEqual(t, "doe", req.Param("*"))
 		return nil
 	})
 
@@ -350,7 +350,7 @@ func Test_App_Use_UnescapedPath(t *testing.T) {
 
 	app.Use("/cRéeR/:param", func(req *Request, res *Response) error {
 		utils.AssertEqual(t, "/cRéeR/اختبار", req.Path())
-		return res.String(req.UrlParam("param"))
+		return res.String(req.Param("param"))
 	})
 
 	app.Use("/abc", func(req *Request, res *Response) error {
@@ -437,8 +437,8 @@ func Test_App_Use_Params_Group(t *testing.T) {
 		return req.Next()
 	})
 	group.Get("/test", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "john", req.UrlParam("param"))
-		utils.AssertEqual(t, "doe", req.UrlParam("*"))
+		utils.AssertEqual(t, "john", req.Param("param"))
+		utils.AssertEqual(t, "doe", req.Param("*"))
 		return nil
 	})
 

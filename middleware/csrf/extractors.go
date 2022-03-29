@@ -17,7 +17,7 @@ var (
 // csrfFromParam returns a function that extracts token from the url param string.
 func csrfFromParam(param string) func(req *lightning.Request, res *lightning.Response) (string, error) {
 	return func(req *lightning.Request, res *lightning.Response) (string, error) {
-		token := req.UrlParam(param)
+		token := req.Param(param)
 		if token == "" {
 			return "", errMissingParam
 		}

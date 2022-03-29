@@ -35,7 +35,7 @@ func Test_Route_Match_SameLength(t *testing.T) {
 	app := New()
 
 	app.Get("/:param", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("param"))
+		return res.String(req.Param("param"))
 	})
 
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/:param", nil))
@@ -60,7 +60,7 @@ func Test_Route_Match_Star(t *testing.T) {
 	app := New()
 
 	app.Get("/*", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("*"))
+		return res.String(req.Param("*"))
 	})
 
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/*", nil))
@@ -122,10 +122,10 @@ func Test_Route_Match_Parser(t *testing.T) {
 	app := New()
 
 	app.Get("/foo/:ParamName", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("ParamName"))
+		return res.String(req.Param("ParamName"))
 	})
 	app.Get("/Foobar/*", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("*"))
+		return res.String(req.Param("*"))
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/foo/bar", nil))
 	utils.AssertEqual(t, nil, err, "app.Test(req)")
@@ -149,7 +149,7 @@ func Test_Route_Match_Middleware(t *testing.T) {
 	app := New()
 
 	app.Use("/foo/*", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("*"))
+		return res.String(req.Param("*"))
 	})
 
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/foo/*", nil))
@@ -209,7 +209,7 @@ func Test_Route_Match_WithEscapeChar(t *testing.T) {
 	})
 	// route with resource param and escaped part
 	app.Get("/v3/:resource/name\\:customVerb", func(req *Request, res *Response) error {
-		return res.String(req.UrlParam("resource"))
+		return res.String(req.Param("resource"))
 	})
 
 	// check static route

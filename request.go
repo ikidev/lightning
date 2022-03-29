@@ -5,6 +5,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"mime/multipart"
 	"strconv"
+	"strings"
 )
 
 // Request is a struct holding all the request information.
@@ -12,6 +13,77 @@ type Request struct {
 	// Ctx represents the Context which hold the HTTP request and response.
 	ctx    *Ctx
 	Header *HeaderMap
+}
+
+// Accepts checks if the specified extensions or content types are acceptable.
+func (req *Request) Accepts(offers ...string) string {
+	if len(offers) == 0 {
+		return ""
+	}
+	header := req.Header.Get(HeaderAccept)
+	if header == "" {
+		return offers[0]
+	}
+
+	spec, commaPos := "", 0
+	for len(header) > 0 && commaPos != -1 {
+		commaPos = strings.IndexByte(header, ',')
+		if commaPos != -1 {
+			spec = utils.Trim(header[:commaPos], ' ')
+		} else {
+			spec = utils.TrimLeft(header, ' ')
+		}
+		if factorSign := strings.IndexByte(spec, ';'); factorSign != -1 {
+			spec = spec[:factorSign]
+		}
+
+		var mimetype string
+		for _, offer := range offers {
+			if len(offer) == 0 {
+				continue
+				// Accept: */*
+			} else if spec == "*/*" {
+				return offer
+			}
+
+			if strings.IndexByte(offer, '/') != -1 {
+				mimetype = offer // MIME type
+			} else {
+				mimetype = utils.GetMIME(offer) // extension
+			}
+
+			if spec == mimetype {
+				// Accept: <MIME_type>/<MIME_subtype>
+				return offer
+			}
+
+			s := strings.IndexByte(mimetype, '/')
+			// Accept: <MIME_type>/*
+			if strings.HasPrefix(spec, mimetype[:s]) && (spec[s:] == "/*" || mimetype[s:] == "/*") {
+				return offer
+			}
+		}
+		if commaPos != -1 {
+			header = header[commaPos+1:]
+		}
+	}
+
+	return ""
+}
+
+// AcceptsCharsets checks if the specified charset is acceptable.
+func (req *Request) AcceptsCharsets(offers ...string) string {
+	return getOffer(req.Header.Get(HeaderAcceptCharset), offers...)
+}
+
+// AcceptsEncodings checks if the specified encoding is acceptable.
+func (req *Request) AcceptsEncodings(offers ...string) string {
+	return getOffer(req.Header.Get(HeaderAcceptEncoding), offers...)
+}
+
+// AcceptsLanguages checks if the specified language is acceptable.
+func (req *Request) AcceptsLanguages(offers ...string) string {
+	return getOffer(req.Header.Get(HeaderAcceptLanguage), offers...)
 }
 
 func (req *Request) Path(override ...string) string {
@@ -147,13 +219,13 @@ func (req *Request) Redirect(location string, status ...int) error {
 	return req.ctx.Redirect(location, status...)
 }
 
-func (req *Request) UrlParam(key string, defaultValue ...string) string {
+func (req *Request) Param(key string, defaultValue ...string) string {
 	return req.ctx.Params(key, defaultValue...)
 }
 
-func (req *Request) IntUrlParam(key string, defaultValue ...int) int {
+func (req *Request) IntParam(key string, defaultValue ...int) int {
 	// Use Atoi to convert the param to an int or return zero and an error
-	value, err := strconv.Atoi(req.UrlParam(key))
+	value, err := strconv.Atoi(req.Param(key))
 	if err != nil {
 		if len(defaultValue) > 0 {
 			return defaultValue[0]

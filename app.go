@@ -103,6 +103,8 @@ type App struct {
 	handlersCount uint32
 	// Ctx pool
 	pool sync.Pool
+	// Req/Res pool
+	rrPool sync.Pool
 	// Fasthttp server
 	server *fasthttp.Server
 	// App config

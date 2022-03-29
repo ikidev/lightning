@@ -110,7 +110,7 @@ func Test_Cache_WithSeveralRequests(t *testing.T) {
 	}))
 
 	app.Get("/:id", func(req *lightning.Request, res *lightning.Response) error {
-		return res.String(req.UrlParam("id"))
+		return res.String(req.Param("id"))
 	})
 
 	for runs := 0; runs < 10; runs++ {

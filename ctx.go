@@ -82,7 +82,7 @@ type Views interface {
 // ParserType require two element, type and converter for register.
 // Use ParserType with BodyParser for parsing custom type in form data.
 type ParserType struct {
-	Customtype interface{}
+	CustomType interface{}
 	Converter  func(string) reflect.Value
 }
 
@@ -118,24 +118,7 @@ func (app *App) AcquireCtx(fctx *fasthttp.RequestCtx) *Ctx {
 
 // AcquireReqRes Builds a new Req, Res from the pool.
 func (app *App) AcquireReqRes(fctx *fasthttp.RequestCtx) (*Request, *Response) {
-	c := app.pool.Get().(*Ctx)
-	// Set app reference
-	c.app = app
-	// Reset route and handler index
-	c.indexRoute = -1
-	c.indexHandler = 0
-	// Reset matched flag
-	c.matched = false
-	// Set paths
-	c.pathOriginal = app.getString(fctx.URI().PathOriginal())
-	// Set method
-	c.method = app.getString(fctx.Request.Header.Method())
-	c.methodINT = methodInt(c.method)
-	// Attach *fasthttp.RequestCtx to ctx
-	c.fasthttp = fctx
-	// Prettify path
-	c.configDependentPaths()
-
+	c := app.AcquireCtx(fctx)
 	return buildRouteCallback(c)
 }
 
@@ -145,77 +128,6 @@ func (app *App) ReleaseCtx(c *Ctx) {
 	c.route = nil
 	c.fasthttp = nil
 	app.pool.Put(c)
-}
-
-// Accepts checks if the specified extensions or content types are acceptable.
-func (c *Ctx) Accepts(offers ...string) string {
-	if len(offers) == 0 {
-		return ""
-	}
-	header := c.Get(HeaderAccept)
-	if header == "" {
-		return offers[0]
-	}
-
-	spec, commaPos := "", 0
-	for len(header) > 0 && commaPos != -1 {
-		commaPos = strings.IndexByte(header, ',')
-		if commaPos != -1 {
-			spec = utils.Trim(header[:commaPos], ' ')
-		} else {
-			spec = utils.TrimLeft(header, ' ')
-		}
-		if factorSign := strings.IndexByte(spec, ';'); factorSign != -1 {
-			spec = spec[:factorSign]
-		}
-
-		var mimetype string
-		for _, offer := range offers {
-			if len(offer) == 0 {
-				continue
-				// Accept: */*
-			} else if spec == "*/*" {
-				return offer
-			}
-
-			if strings.IndexByte(offer, '/') != -1 {
-				mimetype = offer // MIME type
-			} else {
-				mimetype = utils.GetMIME(offer) // extension
-			}
-
-			if spec == mimetype {
-				// Accept: <MIME_type>/<MIME_subtype>
-				return offer
-			}
-
-			s := strings.IndexByte(mimetype, '/')
-			// Accept: <MIME_type>/*
-			if strings.HasPrefix(spec, mimetype[:s]) && (spec[s:] == "/*" || mimetype[s:] == "/*") {
-				return offer
-			}
-		}
-		if commaPos != -1 {
-			header = header[commaPos+1:]
-		}
-	}
-
-	return ""
-}
-
-// AcceptsCharsets checks if the specified charset is acceptable.
-func (c *Ctx) AcceptsCharsets(offers ...string) string {
-	return getOffer(c.Get(HeaderAcceptCharset), offers...)
-}
-
-// AcceptsEncodings checks if the specified encoding is acceptable.
-func (c *Ctx) AcceptsEncodings(offers ...string) string {
-	return getOffer(c.Get(HeaderAcceptEncoding), offers...)
-}
-
-// AcceptsLanguages checks if the specified language is acceptable.
-func (c *Ctx) AcceptsLanguages(offers ...string) string {
-	return getOffer(c.Get(HeaderAcceptLanguage), offers...)
 }
 
 // App returns the *App reference to the instance of the Fiber application
@@ -315,7 +227,7 @@ func decoderBuilder(parserConfig ParserConfig) interface{} {
 		decoder.SetAliasTag(parserConfig.SetAliasTag)
 	}
 	for _, v := range parserConfig.ParserType {
-		decoder.RegisterConverter(reflect.ValueOf(v.Customtype).Interface(), v.Converter)
+		decoder.RegisterConverter(reflect.ValueOf(v.CustomType).Interface(), v.Converter)
 	}
 	decoder.ZeroEmpty(parserConfig.ZeroEmpty)
 	return decoder
@@ -466,44 +378,6 @@ func (c *Ctx) Request() *fasthttp.Request {
 // https://godoc.org/github.com/valyala/fasthttp#Response
 func (c *Ctx) Response() *fasthttp.Response {
 	return &c.fasthttp.Response
-}
-
-// Format performs content-negotiation on the Accept HTTP header.
-// It uses Accepts to select a proper format.
-// If the header is not specified or there is no proper format, text/plain is used.
-func (c *Ctx) Format(body interface{}) error {
-	// Get accepted content type
-	accept := c.Accepts("html", "json", "txt", "xml")
-	// Set accepted content type
-	c.Type(accept)
-	// Type convert provided body
-	var b string
-	switch val := body.(type) {
-	case string:
-		b = val
-	case []byte:
-		b = c.app.getString(val)
-	default:
-		b = fmt.Sprintf("%v", val)
-	}
-
-	// Format based on the accept content type
-	switch accept {
-	case "html":
-		return c.SendString("<p>" + b + "</p>")
-	case "json":
-		return c.JSON(body)
-	case "txt":
-		return c.SendString(b)
-	case "xml":
-		raw, err := xml.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("error serializing xml: %v", body)
-		}
-		c.fasthttp.Response.SetBody(raw)
-		return nil
-	}
-	return c.SendString(b)
 }
 
 // FormFile returns the first file by key from a MultipartForm.

@@ -183,7 +183,7 @@ func Test_FileSystem_UsingParam(t *testing.T) {
 	app := lightning.New()
 
 	app.Use("/:path", func(req *lightning.Request, res *lightning.Response) error {
-		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.UrlParam("path")+".html")
+		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.Param("path")+".html")
 	})
 
 	req, _ := http.NewRequest(lightning.MethodHead, "/index", nil)
@@ -196,7 +196,7 @@ func Test_FileSystem_UsingParam_NonFile(t *testing.T) {
 	app := lightning.New()
 
 	app.Use("/:path", func(req *lightning.Request, res *lightning.Response) error {
-		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.UrlParam("path")+".html")
+		return SendFile(req, res, http.Dir("../../.github/testdata/fs"), req.Param("path")+".html")
 	})
 
 	req, _ := http.NewRequest(lightning.MethodHead, "/template", nil)

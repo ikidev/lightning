@@ -410,7 +410,7 @@ func Test_Ctx_BodyParser_WithSetParserDecoder(t *testing.T) {
 	}
 
 	customTime := ParserType{
-		Customtype: CustomTime{},
+		CustomType: CustomTime{},
 		Converter:  timeConverter,
 	}
 
@@ -1256,21 +1256,21 @@ func Test_Ctx_Params(t *testing.T) {
 	t.Parallel()
 	app := New()
 	app.Get("/test/:user", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "john", req.UrlParam("user"))
+		utils.AssertEqual(t, "john", req.Param("user"))
 		return nil
 	})
 	app.Get("/test2/*", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "im/a/cookie", req.UrlParam("*"))
+		utils.AssertEqual(t, "im/a/cookie", req.Param("*"))
 		return nil
 	})
 	app.Get("/test3/*/blafasel/*", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "1111", req.UrlParam("*1"))
-		utils.AssertEqual(t, "2222", req.UrlParam("*2"))
-		utils.AssertEqual(t, "1111", req.UrlParam("*"))
+		utils.AssertEqual(t, "1111", req.Param("*1"))
+		utils.AssertEqual(t, "2222", req.Param("*2"))
+		utils.AssertEqual(t, "1111", req.Param("*"))
 		return nil
 	})
 	app.Get("/test4/:optional?", func(req *Request, res *Response) error {
-		utils.AssertEqual(t, "", req.UrlParam("optional"))
+		utils.AssertEqual(t, "", req.Param("optional"))
 		return nil
 	})
 	resp, err := app.Test(httptest.NewRequest(MethodGet, "/test/john", nil))
@@ -1764,7 +1764,7 @@ func Test_Ctx_SendFile_Immutable(t *testing.T) {
 	t.Parallel()
 	app := New()
 	app.Get("/:file", func(req *Request, res *Response) error {
-		file := req.UrlParam("file")
+		file := req.Param("file")
 		if err := res.File("./.github/" + file + ".html"); err != nil {
 			utils.AssertEqual(t, nil, err)
 		}
@@ -2521,7 +2521,7 @@ func Test_Ctx_QueryParser_WithSetParserDecoder(t *testing.T) {
 	}
 
 	nonRFCTime := ParserType{
-		Customtype: NonRFCTime{},
+		CustomType: NonRFCTime{},
 		Converter:  NonRFCConverter,
 	}
 
@@ -2721,7 +2721,7 @@ func Test_Ctx_ReqHeaderParser_WithSetParserDecoder(t *testing.T) {
 	}
 
 	nonRFCTime := ParserType{
-		Customtype: NonRFCTime{},
+		CustomType: NonRFCTime{},
 		Converter:  NonRFCConverter,
 	}
 
@@ -3017,7 +3017,7 @@ func TestCtx_ParamsInt(t *testing.T) {
 	app.Get("/test/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num := req.IntUrlParam("user")
+		num := req.IntParam("user")
 
 		// Check the number matches
 		if num != 1111 {
@@ -3032,7 +3032,7 @@ func TestCtx_ParamsInt(t *testing.T) {
 	app.Get("/testnoint/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num := req.IntUrlParam("user")
+		num := req.IntParam("user")
 
 		// Check the number matches
 		if num != 0 {
@@ -3047,7 +3047,7 @@ func TestCtx_ParamsInt(t *testing.T) {
 	app.Get("/testignoredefault/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num := req.IntUrlParam("user", 1111)
+		num := req.IntParam("user", 1111)
 
 		// Check the number matches
 		if num != 2222 {
@@ -3062,7 +3062,7 @@ func TestCtx_ParamsInt(t *testing.T) {
 	app.Get("/testdefault/:user", func(req *Request, res *Response) error {
 		// utils.AssertEqual(t, "john", c.Params("user"))
 
-		num := req.IntUrlParam("user", 1111)
+		num := req.IntParam("user", 1111)
 
 		// Check the number matches
 		if num != 1111 {

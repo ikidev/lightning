@@ -15,9 +15,9 @@ func Test_Middleware_Timeout(t *testing.T) {
 	app := lightning.New(lightning.Config{DisableStartupMessage: true})
 
 	h := New(func(req *lightning.Request, res *lightning.Response) error {
-		sleepTime, _ := time.ParseDuration(req.UrlParam("sleepTime") + "ms")
+		sleepTime, _ := time.ParseDuration(req.Param("sleepTime") + "ms")
 		time.Sleep(sleepTime)
-		return res.String("After " + req.UrlParam("sleepTime") + "ms sleeping")
+		return res.String("After " + req.Param("sleepTime") + "ms sleeping")
 	}, 5*time.Millisecond)
 	app.Get("/test/:sleepTime", h)
 
