@@ -2,6 +2,7 @@
 
 
 # This is a custom version of Fiber. Still in pre-alpha stage. 
+## Main focus, move everything from Ctx to Request, Response pattern
 
 
 ## Consider donating to [Fiber](https://buymeacoff.ee/fenny)

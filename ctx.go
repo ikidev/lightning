@@ -130,6 +130,11 @@ func (app *App) ReleaseCtx(c *Ctx) {
 	app.pool.Put(c)
 }
 
+// ReleaseCtxFromReqRes releases the ctx back into the pool.
+func (app *App) ReleaseCtxFromReqRes(req *Request, res *Response) {
+	app.ReleaseCtx(req.ctx)
+}
+
 // App returns the *App reference to the instance of the Fiber application
 func (c *Ctx) App() *App {
 	return c.app
@@ -503,6 +508,44 @@ func (c *Ctx) Hostname() string {
 func (c *Ctx) Port() string {
 	port := c.fasthttp.RemoteAddr().(*net.TCPAddr).Port
 	return strconv.Itoa(port)
+}
+
+// Format performs content-negotiation on the Accept HTTP header.
+// It uses Accepts to select a proper format.
+// If the header is not specified or there is no proper format, text/plain is used.
+func (c *Ctx) Format(body interface{}) error {
+
+	// Get accepted content type
+	accept := c.req.Accepts("html", "json", "txt", "xml")
+	// Set accepted content type
+	c.res.Type(accept)
+	// Type convert provided body
+	var b string
+	switch val := body.(type) {
+	case string:
+		b = val
+	case []byte:
+		b = c.app.getString(val)
+	default:
+		b = fmt.Sprintf("%v", val)
+	}
+
+	// Format based on the accept content type
+	switch accept {
+	case "html":
+		return c.res.String("<p>" + b + "</p>")
+	case "json":
+		return c.res.JSON(body)
+	case "txt":
+		return c.res.String(b)
+	case "xml":
+		raw, err := xml.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("error serializing xml: %v", body)
+		}
+		return c.res.Bytes(raw)
+	}
+	return c.res.String(b)
 }
 
 // IP returns the remote IP address of the request.

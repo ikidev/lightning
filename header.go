@@ -32,7 +32,7 @@ func (hm *HeaderMap) All() map[string]string {
 
 // Get retrieves the value of a given header
 func (hm *HeaderMap) Get(key string, defaultString ...string) string {
-	if val, ok := hm.Map[key]; ok {
+	if val, ok := hm.Map[strings.ToLower(key)]; ok {
 		if ok {
 			return val
 		}

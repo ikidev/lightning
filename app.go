@@ -35,8 +35,13 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// Version of current fiber package
-const Version = "2.25.0"
+const AppName = "Lightning"
+
+// FiberVersion of current fiber package
+const FiberVersion = "2.25.0"
+
+// LightningVersion version of the lighining release
+const LightningVersion = "0.0.1"
 
 // Handler defines a function to serve HTTP requests.
 type Handler = func(request *Request, response *Response) error
@@ -1156,7 +1161,8 @@ func (app *App) startupMessage(addr string, tls bool, pids string) {
 	if app.config.AppName != "" {
 		mainLogo += " │ " + centerValue(app.config.AppName, 49) + " │\n"
 	}
-	mainLogo += " │ " + centerValue(" Fiber v"+Version, 49) + " │\n"
+	mainLogo += " │ " + centerValue(" Lightning v"+LightningVersion, 49) + " │\n"
+	mainLogo += " │ " + centerValue(" Fiber v"+FiberVersion, 49) + " │\n"
 
 	if host == "0.0.0.0" {
 		mainLogo +=

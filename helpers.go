@@ -660,7 +660,7 @@ const (
 	HeaderSecWebSocketExtensions  = "Sec-WebSocket-Extensions"
 	HeaderSecWebSocketKey         = "Sec-WebSocket-Key"
 	HeaderSecWebSocketProtocol    = "Sec-WebSocket-Protocol"
-	HeaderSecWebSocketVersion     = "Sec-WebSocket-Version"
+	HeaderSecWebSocketVersion     = "Sec-WebSocket-FiberVersion"
 	HeaderAcceptPatch             = "Accept-Patch"
 	HeaderAcceptPushPolicy        = "Accept-Push-Policy"
 	HeaderAcceptSignature         = "Accept-Signature"
